@@ -1,6 +1,7 @@
 # 🚀 WebDev Studio - Visual Studio Code Clone
 
 A comprehensive, web-based development environment that brings the power of Visual Studio Code to your browser. Build websites, edit code, and preview your work all in one place!
+https://horrelltech.github.io/webdev-studio/
 
 ![WebDev Studio](https://img.shields.io/badge/WebDev-Studio-blue?style=for-the-badge&logo=visualstudiocode) ![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge) ![Version](https://img.shields.io/badge/Version-2.0-orange?style=for-the-badge)
 
