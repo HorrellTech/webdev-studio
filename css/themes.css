@@ -1,0 +1,265 @@
+/* CSS Variables for Theme System */
+
+:root {
+  /* Dark Theme Variables (Default) */
+  --primary-bg: #1e1e1e;
+  --secondary-bg: #252526;
+  --tertiary-bg: #2d2d30;
+  --hover-bg: #37373d;
+  --active-bg: #094771;
+  --border-color: #3c3c3c;
+  --text-primary: #cccccc;
+  --text-secondary: #969696;
+  --text-muted: #6a6a6a;
+  --accent-color: #007acc;
+  --accent-hover: #1177bb;
+  --success-color: #4caf50;
+  --warning-color: #ff9800;
+  --error-color: #f44336;
+  --info-color: #2196f3;
+  
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-xxl: 32px;
+  
+  /* Typography */
+  --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --font-family-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-md: 13px;
+  --font-size-lg: 14px;
+  --font-size-xl: 16px;
+  
+  /* Layout */
+  --header-height: 30px;
+  --toolbar-height: 40px;
+  --statusbar-height: 22px;
+  --panel-min-width: 200px;
+  --panel-max-width: 800px;
+  --border-radius: 4px;
+  --transition: all 0.2s ease;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.4);
+  
+  /* CodeMirror */
+  --editor-bg: #1e1e1e;
+  --editor-text: #d4d4d4;
+  --editor-line-bg: #2d2d30;
+  --editor-selection: #264f78;
+  --editor-cursor: #d4d4d4;
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --primary-bg: #ffffff;
+  --secondary-bg: #f3f3f3;
+  --tertiary-bg: #e8e8e8;
+  --hover-bg: #e0e0e0;
+  --active-bg: #e1f5fe;
+  --border-color: #d0d0d0;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --accent-color: #0078d4;
+  --accent-hover: #106ebe;
+  --success-color: #107c10;
+  --warning-color: #ff8c00;
+  --error-color: #d13438;
+  --info-color: #0078d4;
+  
+  --editor-bg: #ffffff;
+  --editor-text: #333333;
+  --editor-line-bg: #f3f3f3;
+  --editor-selection: #add6ff;
+  --editor-cursor: #333333;
+}
+
+/* High Contrast Theme */
+[data-theme="contrast"] {
+  --primary-bg: #000000;
+  --secondary-bg: #000000;
+  --tertiary-bg: #1a1a1a;
+  --hover-bg: #333333;
+  --active-bg: #0078d4;
+  --border-color: #ffffff;
+  --text-primary: #ffffff;
+  --text-secondary: #ffffff;
+  --text-muted: #cccccc;
+  --accent-color: #ffff00;
+  --accent-hover: #ffff99;
+  --success-color: #00ff00;
+  --warning-color: #ffff00;
+  --error-color: #ff0000;
+  --info-color: #00ffff;
+  
+  --editor-bg: #000000;
+  --editor-text: #ffffff;
+  --editor-line-bg: #1a1a1a;
+  --editor-selection: #0078d4;
+  --editor-cursor: #ffffff;
+}
+
+/* Monokai Theme */
+[data-theme="monokai"] {
+  --primary-bg: #272822;
+  --secondary-bg: #3e3d32;
+  --tertiary-bg: #49483e;
+  --hover-bg: #75715e;
+  --active-bg: #66d9ef;
+  --border-color: #75715e;
+  --text-primary: #f8f8f2;
+  --text-secondary: #75715e;
+  --text-muted: #6e7066;
+  --accent-color: #a6e22e;
+  --accent-hover: #a6e22e;
+  --success-color: #a6e22e;
+  --warning-color: #fd971f;
+  --error-color: #f92672;
+  --info-color: #66d9ef;
+  
+  --editor-bg: #272822;
+  --editor-text: #f8f8f2;
+  --editor-line-bg: #3e3d32;
+  --editor-selection: #49483e;
+  --editor-cursor: #f8f8f0;
+}
+
+/* Solarized Dark Theme */
+[data-theme="solarized-dark"] {
+  --primary-bg: #002b36;
+  --secondary-bg: #073642;
+  --tertiary-bg: #586e75;
+  --hover-bg: #657b83;
+  --active-bg: #268bd2;
+  --border-color: #586e75;
+  --text-primary: #839496;
+  --text-secondary: #657b83;
+  --text-muted: #586e75;
+  --accent-color: #268bd2;
+  --accent-hover: #2aa198;
+  --success-color: #859900;
+  --warning-color: #cb4b16;
+  --error-color: #dc322f;
+  --info-color: #268bd2;
+  
+  --editor-bg: #002b36;
+  --editor-text: #839496;
+  --editor-line-bg: #073642;
+  --editor-selection: #073642;
+  --editor-cursor: #839496;
+}
+
+/* Dracula Theme */
+[data-theme="dracula"] {
+  --primary-bg: #282a36;
+  --secondary-bg: #44475a;
+  --tertiary-bg: #6272a4;
+  --hover-bg: #6272a4;
+  --active-bg: #bd93f9;
+  --border-color: #6272a4;
+  --text-primary: #f8f8f2;
+  --text-secondary: #6272a4;
+  --text-muted: #6272a4;
+  --accent-color: #bd93f9;
+  --accent-hover: #ff79c6;
+  --success-color: #50fa7b;
+  --warning-color: #ffb86c;
+  --error-color: #ff5555;
+  --info-color: #8be9fd;
+  
+  --editor-bg: #282a36;
+  --editor-text: #f8f8f2;
+  --editor-line-bg: #44475a;
+  --editor-selection: #44475a;
+  --editor-cursor: #f8f8f2;
+}
+
+/* Auto theme (system preference) */
+@media (prefers-color-scheme: dark) {
+  [data-theme="auto"] {
+    --primary-bg: #1e1e1e;
+    --secondary-bg: #252526;
+    --tertiary-bg: #2d2d30;
+    --hover-bg: #37373d;
+    --active-bg: #094771;
+    --border-color: #3c3c3c;
+    --text-primary: #cccccc;
+    --text-secondary: #969696;
+    --text-muted: #6a6a6a;
+    --accent-color: #007acc;
+    --accent-hover: #1177bb;
+    --success-color: #4caf50;
+    --warning-color: #ff9800;
+    --error-color: #f44336;
+    --info-color: #2196f3;
+    
+    --editor-bg: #1e1e1e;
+    --editor-text: #d4d4d4;
+    --editor-line-bg: #2d2d30;
+    --editor-selection: #264f78;
+    --editor-cursor: #d4d4d4;
+  }
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme="auto"] {
+    --primary-bg: #ffffff;
+    --secondary-bg: #f3f3f3;
+    --tertiary-bg: #e8e8e8;
+    --hover-bg: #e0e0e0;
+    --active-bg: #e1f5fe;
+    --border-color: #d0d0d0;
+    --text-primary: #333333;
+    --text-secondary: #666666;
+    --text-muted: #999999;
+    --accent-color: #0078d4;
+    --accent-hover: #106ebe;
+    --success-color: #107c10;
+    --warning-color: #ff8c00;
+    --error-color: #d13438;
+    --info-color: #0078d4;
+    
+    --editor-bg: #ffffff;
+    --editor-text: #333333;
+    --editor-line-bg: #f3f3f3;
+    --editor-selection: #add6ff;
+    --editor-cursor: #333333;
+  }
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--secondary-bg);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: var(--border-radius);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--secondary-bg);
+}
+
+/* Firefox scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) var(--secondary-bg);
+}

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebDev Studio Functionality Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .test-section {
+            background: #2d2d30;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            border-left: 3px solid #007acc;
+        }
+        .pass { border-left-color: #4ec9b0; }
+        .fail { border-left-color: #f44747; }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 3px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: #1177bb; }
+        #results {
+            background: #252526;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebDev Studio Functionality Test</h1>
+    
+    <div class="test-section">
+        <h3>Test Menu Bar</h3>
+        <button onclick="testMenuBar()">Click File Menu</button>
+        <button onclick="testEditMenu()">Click Edit Menu</button>
+        <button onclick="testViewMenu()">Click View Menu</button>
+        <button onclick="testHelpMenu()">Click Help Menu</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Panel Resizers</h3>
+        <button onclick="testLeftResizer()">Test Left Panel Resizer</button>
+        <button onclick="testRightResizer()">Test Right Panel Resizer</button>
+        <button onclick="testPanelCollapse()">Test Panel Collapse</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test File Explorer</h3>
+        <button onclick="testFileTree()">Check File Tree</button>
+        <button onclick="testContextMenu()">Test Context Menu</button>
+        <button onclick="testCreateFile()">Create Test File</button>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Results</h3>
+        <button onclick="clearResults()">Clear Results</button>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        function log(message, status = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const statusIcon = status === 'pass' ? '✓' : status === 'fail' ? '✗' : 'ℹ';
+            const color = status === 'pass' ? '#4ec9b0' : status === 'fail' ? '#f44747' : '#007acc';
+            
+            results.innerHTML += `<div style="color: ${color}; margin: 5px 0;">
+                [${timestamp}] ${statusIcon} ${message}
+            </div>`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        function testMenuBar() {
+            log('Testing menu bar...');
+            
+            // Simulate clicking File menu
+            const fileMenu = document.querySelector('[data-menu="file"]');
+            if (fileMenu) {
+                log('File menu element found', 'pass');
+                fileMenu.click();
+                
+                // Check if dropdown appears
+                setTimeout(() => {
+                    const dropdown = document.getElementById('fileMenu');
+                    if (dropdown && dropdown.classList.contains('show')) {
+                        log('File menu dropdown opened successfully', 'pass');
+                    } else {
+                        log('File menu dropdown failed to open', 'fail');
+                    }
+                }, 100);
+            } else {
+                log('File menu element not found', 'fail');
+            }
+        }
+
+        function testEditMenu() {
+            log('Testing edit menu...');
+            const editMenu = document.querySelector('[data-menu="edit"]');
+            if (editMenu) {
+                log('Edit menu element found', 'pass');
+                editMenu.click();
+                setTimeout(() => {
+                    const dropdown = document.getElementById('editMenu');
+                    if (dropdown && dropdown.classList.contains('show')) {
+                        log('Edit menu dropdown opened successfully', 'pass');
+                    } else {
+                        log('Edit menu dropdown failed to open', 'fail');
+                    }
+                }, 100);
+            } else {
+                log('Edit menu element not found', 'fail');
+            }
+        }
+
+        function testViewMenu() {
+            log('Testing view menu...');
+            const viewMenu = document.querySelector('[data-menu="view"]');
+            if (viewMenu) {
+                log('View menu element found', 'pass');
+                viewMenu.click();
+                setTimeout(() => {
+                    const dropdown = document.getElementById('viewMenu');
+                    if (dropdown && dropdown.classList.contains('show')) {
+                        log('View menu dropdown opened successfully', 'pass');
+                    } else {
+                        log('View menu dropdown failed to open', 'fail');
+                    }
+                }, 100);
+            } else {
+                log('View menu element not found', 'fail');
+            }
+        }
+
+        function testHelpMenu() {
+            log('Testing help menu...');
+            const helpMenu = document.querySelector('[data-menu="help"]');
+            if (helpMenu) {
+                log('Help menu element found', 'pass');
+                helpMenu.click();
+                setTimeout(() => {
+                    const dropdown = document.getElementById('helpMenu');
+                    if (dropdown && dropdown.classList.contains('show')) {
+                        log('Help menu dropdown opened successfully', 'pass');
+                    } else {
+                        log('Help menu dropdown failed to open', 'fail');
+                    }
+                }, 100);
+            } else {
+                log('Help menu element not found', 'fail');
+            }
+        }
+
+        function testLeftResizer() {
+            log('Testing left panel resizer...');
+            const leftResizer = document.querySelector('.left-resizer');
+            if (leftResizer) {
+                log('Left resizer element found', 'pass');
+                
+                // Test cursor style
+                const computedStyle = window.getComputedStyle(leftResizer);
+                if (computedStyle.cursor === 'col-resize') {
+                    log('Left resizer has correct cursor style', 'pass');
+                } else {
+                    log('Left resizer cursor style incorrect: ' + computedStyle.cursor, 'fail');
+                }
+                
+                // Simulate mousedown event
+                const mousedownEvent = new MouseEvent('mousedown', {
+                    clientX: 300,
+                    bubbles: true
+                });
+                leftResizer.dispatchEvent(mousedownEvent);
+                log('Mousedown event dispatched on left resizer', 'pass');
+                
+            } else {
+                log('Left resizer element not found', 'fail');
+            }
+        }
+
+        function testRightResizer() {
+            log('Testing right panel resizer...');
+            const rightResizer = document.querySelector('.right-resizer');
+            if (rightResizer) {
+                log('Right resizer element found', 'pass');
+                
+                const computedStyle = window.getComputedStyle(rightResizer);
+                if (computedStyle.cursor === 'col-resize') {
+                    log('Right resizer has correct cursor style', 'pass');
+                } else {
+                    log('Right resizer cursor style incorrect: ' + computedStyle.cursor, 'fail');
+                }
+            } else {
+                log('Right resizer element not found', 'fail');
+            }
+        }
+
+        function testPanelCollapse() {
+            log('Testing panel collapse buttons...');
+            const collapseButtons = document.querySelectorAll('.panel-collapse');
+            
+            if (collapseButtons.length > 0) {
+                log(`Found ${collapseButtons.length} collapse buttons`, 'pass');
+                
+                collapseButtons.forEach((btn, index) => {
+                    const panelSide = btn.dataset.panel;
+                    log(`Collapse button ${index + 1} controls: ${panelSide}`, 'info');
+                    
+                    // Test clicking the button
+                    btn.click();
+                    log(`Clicked collapse button for ${panelSide} panel`, 'pass');
+                });
+            } else {
+                log('No collapse buttons found', 'fail');
+            }
+        }
+
+        function testFileTree() {
+            log('Testing file tree...');
+            const fileTree = document.getElementById('fileTree');
+            
+            if (fileTree) {
+                log('File tree element found', 'pass');
+                
+                // Check if it has content
+                if (fileTree.children.length > 0) {
+                    log(`File tree has ${fileTree.children.length} items`, 'pass');
+                } else {
+                    log('File tree is empty', 'fail');
+                }
+                
+                // Test file system
+                if (window.fileSystem) {
+                    const fileCount = window.fileSystem.files.size;
+                    const folderCount = window.fileSystem.folders.size;
+                    log(`FileSystem: ${fileCount} files, ${folderCount} folders`, 'pass');
+                } else {
+                    log('FileSystem not available', 'fail');
+                }
+                
+            } else {
+                log('File tree element not found', 'fail');
+            }
+        }
+
+        function testContextMenu() {
+            log('Testing context menu...');
+            const fileTree = document.getElementById('fileTree');
+            
+            if (fileTree) {
+                // Simulate right-click
+                const contextMenuEvent = new MouseEvent('contextmenu', {
+                    clientX: 200,
+                    clientY: 200,
+                    bubbles: true
+                });
+                fileTree.dispatchEvent(contextMenuEvent);
+                log('Context menu event dispatched', 'pass');
+            } else {
+                log('Cannot test context menu - file tree not found', 'fail');
+            }
+        }
+
+        function testCreateFile() {
+            log('Testing file creation...');
+            
+            if (window.fileSystem) {
+                try {
+                    const testFile = window.fileSystem.createFile('/test.txt', 'This is a test file');
+                    if (testFile) {
+                        log('Test file created successfully', 'pass');
+                        log(`File path: ${testFile.path}`, 'info');
+                    } else {
+                        log('Failed to create test file', 'fail');
+                    }
+                } catch (error) {
+                    log('Error creating test file: ' + error.message, 'fail');
+                }
+            } else {
+                log('FileSystem not available for testing', 'fail');
+            }
+        }
+
+        // Auto-run basic tests when page loads
+        window.addEventListener('load', () => {
+            log('Functionality test page loaded');
+            
+            // Check if we have access to the main application
+            if (window.parent && window.parent !== window) {
+                log('Running in iframe - testing parent frame', 'info');
+                
+                // Test if we can access parent elements
+                try {
+                    const parentMenus = window.parent.document.querySelectorAll('.menu-item');
+                    log(`Found ${parentMenus.length} menu items in parent`, parentMenus.length > 0 ? 'pass' : 'fail');
+                } catch (error) {
+                    log('Cannot access parent frame elements: ' + error.message, 'fail');
+                }
+            } else {
+                log('Running as standalone page', 'info');
+                log('Load the main index.html to test actual functionality', 'info');
+            }
+        });
+    </script>
+
+    <!-- Include the main application for testing -->
+    <iframe src="index.html" style="width: 100%; height: 400px; border: 1px solid #3c3c3c; margin-top: 20px;" id="appFrame"></iframe>
+</body>
+</html>

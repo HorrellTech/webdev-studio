@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebDev Studio - Visual Studio Code Clone</title>
+    <link rel="stylesheet" href="css/themes.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/mobile.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="app" class="app">
+        <!-- Menu Bar -->
+        <header class="menubar">
+            <div class="menubar-left">
+                <div class="menu-item" data-menu="file">File</div>
+                <div class="menu-item" data-menu="edit">Edit</div>
+                <div class="menu-item" data-menu="view">View</div>
+                <div class="menu-item" data-menu="help">Help</div>
+            </div>
+            <div class="menubar-center">
+                <span class="app-title">WebDev Studio</span>
+            </div>
+            <div class="menubar-right">
+                <button class="btn-icon" id="settingsBtn" title="Settings">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button class="btn-icon" id="themeToggle" title="Toggle Theme">
+                    <i class="fas fa-palette"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Toolbar -->
+        <div class="toolbar">
+            <button class="btn-icon" id="newFileBtn" title="New File">
+                <i class="fas fa-file"></i>
+            </button>
+            <button class="btn-icon" id="openFileBtn" title="Open File">
+                <i class="fas fa-folder-open"></i>
+            </button>
+            <button class="btn-icon" id="saveFileBtn" title="Save File">
+                <i class="fas fa-save"></i>
+            </button>
+            <div class="toolbar-separator"></div>
+            <button class="btn-icon" id="undoBtn" title="Undo">
+                <i class="fas fa-undo"></i>
+            </button>
+            <button class="btn-icon" id="redoBtn" title="Redo">
+                <i class="fas fa-redo"></i>
+            </button>
+            <div class="toolbar-separator"></div>
+            <button class="btn-icon" id="previewBtn" title="Preview">
+                <i class="fas fa-eye"></i>
+            </button>
+            <button class="btn-icon" id="runBtn" title="Run">
+                <i class="fas fa-play"></i>
+            </button>
+            <div class="toolbar-separator"></div>
+            <button class="btn-icon" id="diagnosticBtn" title="Run Diagnostic" style="background: #f39c12;">
+                <i class="fas fa-bug"></i>
+            </button>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="main-container">
+            <!-- Left Panel - File Explorer -->
+            <div class="panel left-panel" id="leftPanel">
+                <div class="panel-header">
+                    <span class="panel-title">Explorer</span>
+                    <button class="btn-icon panel-collapse" data-panel="left">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                </div>
+                <div class="panel-content">
+                    <div class="file-explorer">
+                        <div class="workspace-title">WORKSPACE</div>
+                        <div class="file-tree" id="fileTree"></div>
+                    </div>
+                </div>
+                <div class="panel-resizer left-resizer"></div>
+            </div>
+
+            <!-- Center Panel - Editor -->
+            <div class="editor-container">
+                <div class="tab-bar" id="tabBar"></div>
+                <div class="editor-area">
+                    <div class="welcome-screen" id="welcomeScreen">
+                        <div class="welcome-content">
+                            <h1>Welcome to WebDev Studio</h1>
+                            <p>A powerful web-based development environment</p>
+                            <div class="welcome-actions">
+                                <button class="btn-primary" id="newProjectBtn">New Project</button>
+                                <button class="btn-secondary" id="openProjectBtn">Open File</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="editor-wrapper" id="editorWrapper" style="display: none;">
+                        <textarea id="codeEditor"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - ChatGPT -->
+            <div class="panel right-panel" id="rightPanel">
+                <div class="panel-header">
+                    <span class="panel-title">AI Assistant</span>
+                    <button class="btn-icon panel-collapse" data-panel="right">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                </div>
+                <div class="panel-content">
+                    <div class="chat-container">
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="chat-message system">
+                                <div class="message-content">
+                                    Hello! I'm your AI assistant. Configure your OpenAI API key in settings to get started.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chat-input-container">
+                            <input type="text" id="chatInput" placeholder="Ask me anything..." disabled>
+                            <button id="sendChatBtn" disabled>
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="panel-resizer right-resizer"></div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <footer class="statusbar">
+            <div class="statusbar-left">
+                <span id="fileStatus">Ready</span>
+                <span id="cursorPosition"></span>
+            </div>
+            <div class="statusbar-right">
+                <span id="fileType">Plain Text</span>
+                <span id="encoding">UTF-8</span>
+                <span id="debugInfo" style="color: #ff6b6b; margin-left: 10px;"></span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Dropdown Menus -->
+    <div class="dropdown-menu" id="fileMenu">
+        <div class="menu-option" data-action="new">New File</div>
+        <div class="menu-option" data-action="open">Open File</div>
+        <div class="menu-option" data-action="save">Save</div>
+        <div class="menu-option" data-action="save-as">Save As</div>
+        <div class="menu-separator"></div>
+        <div class="menu-option" data-action="export">Export Project</div>
+    </div>
+
+    <div class="dropdown-menu" id="editMenu">
+        <div class="menu-option" data-action="undo">Undo</div>
+        <div class="menu-option" data-action="redo">Redo</div>
+        <div class="menu-separator"></div>
+        <div class="menu-option" data-action="cut">Cut</div>
+        <div class="menu-option" data-action="copy">Copy</div>
+        <div class="menu-option" data-action="paste">Paste</div>
+        <div class="menu-separator"></div>
+        <div class="menu-option" data-action="find">Find</div>
+        <div class="menu-option" data-action="replace">Replace</div>
+    </div>
+
+    <div class="dropdown-menu" id="viewMenu">
+        <div class="menu-option" data-action="toggle-left-panel">Toggle Explorer</div>
+        <div class="menu-option" data-action="toggle-right-panel">Toggle AI Assistant</div>
+        <div class="menu-separator"></div>
+        <div class="menu-option" data-action="fullscreen">Toggle Fullscreen</div>
+        <div class="menu-option" data-action="zen-mode">Zen Mode</div>
+    </div>
+
+    <div class="dropdown-menu" id="helpMenu">
+        <div class="menu-option" data-action="about">About</div>
+        <div class="menu-option" data-action="shortcuts">Keyboard Shortcuts</div>
+        <div class="menu-option" data-action="documentation">Documentation</div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Settings</h2>
+                <button class="btn-close" id="closeSettingsBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-sidebar">
+                    <div class="settings-tab active" data-tab="general">General</div>
+                    <div class="settings-tab" data-tab="editor">Editor</div>
+                    <div class="settings-tab" data-tab="theme">Theme</div>
+                    <div class="settings-tab" data-tab="ai">AI Assistant</div>
+                    <div class="settings-tab" data-tab="shortcuts">Shortcuts</div>
+                </div>
+                <div class="settings-content">
+                    <div class="settings-panel active" id="generalSettings">
+                        <h3>General Settings</h3>
+                        <div class="setting-group">
+                            <label>Auto Save</label>
+                            <input type="checkbox" id="autoSave" checked>
+                        </div>
+                        <div class="setting-group">
+                            <label>Show Welcome Screen</label>
+                            <input type="checkbox" id="showWelcome" checked>
+                        </div>
+                    </div>
+                    <div class="settings-panel" id="editorSettings">
+                        <h3>Editor Settings</h3>
+                        <div class="setting-group">
+                            <label>Font Size</label>
+                            <input type="number" id="fontSize" value="14" min="10" max="24">
+                        </div>
+                        <div class="setting-group">
+                            <label>Tab Size</label>
+                            <input type="number" id="tabSize" value="2" min="1" max="8">
+                        </div>
+                        <div class="setting-group">
+                            <label>Word Wrap</label>
+                            <input type="checkbox" id="wordWrap">
+                        </div>
+                        <div class="setting-group">
+                            <label>Line Numbers</label>
+                            <input type="checkbox" id="lineNumbers" checked>
+                        </div>
+                    </div>
+                    <div class="settings-panel" id="themeSettings">
+                        <h3>Theme Settings</h3>                        <div class="setting-group">
+                            <label>Color Theme</label>
+                            <select id="colorTheme">
+                                <option value="dark">Dark (VS Code)</option>
+                                <option value="light">Light</option>
+                                <option value="monokai">Monokai</option>
+                                <option value="solarized-dark">Solarized Dark</option>
+                                <option value="dracula">Dracula</option>
+                                <option value="contrast">High Contrast</option>
+                                <option value="auto">Auto (System)</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label>Custom CSS</label>
+                            <textarea id="customCSS" placeholder="Enter custom CSS..."></textarea>
+                        </div>
+                    </div>
+                    <div class="settings-panel" id="aiSettings">
+                        <h3>AI Assistant Settings</h3>
+                        <div class="setting-group">
+                            <label>OpenAI API Key</label>
+                            <input type="password" id="openaiApiKey" placeholder="sk-...">
+                            <small>Your API key is stored locally and never sent to our servers</small>
+                        </div>
+                        <div class="setting-group">
+                            <label>Model</label>
+                            <select id="aiModel">
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="gpt-4">GPT-4</option>
+                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                            </select>
+                        </div>
+                        <div class="setting-group">
+                            <label>Max Tokens</label>
+                            <input type="number" id="maxTokens" value="2000" min="100" max="4000">
+                        </div>
+                    </div>
+                    <div class="settings-panel" id="shortcutsSettings">
+                        <h3>Keyboard Shortcuts</h3>
+                        <div class="shortcuts-list">
+                            <div class="shortcut-item">
+                                <span>New File</span>
+                                <kbd>Ctrl+N</kbd>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Open File</span>
+                                <kbd>Ctrl+O</kbd>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Save</span>
+                                <kbd>Ctrl+S</kbd>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Find</span>
+                                <kbd>Ctrl+F</kbd>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Toggle Explorer</span>
+                                <kbd>Ctrl+Shift+E</kbd>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Toggle AI Assistant</span>
+                                <kbd>Ctrl+Shift+A</kbd>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Modal -->
+    <div class="modal" id="previewModal">
+        <div class="modal-content preview-modal">
+            <div class="modal-header">
+                <h2>Preview</h2>
+                <div class="preview-controls">
+                    <button class="btn-icon" id="refreshPreview" title="Refresh">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                    <button class="btn-icon" id="openInNewTab" title="Open in New Tab">
+                        <i class="fas fa-external-link-alt"></i>
+                    </button>
+                </div>
+                <button class="btn-close" id="closePreviewBtn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <iframe id="previewFrame" sandbox="allow-scripts allow-same-origin"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/xml-fold.min.js"></script>
+    <script src="js/fileSystem.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/fileExplorer.js"></script>
+    <script src="js/chatGPT.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/preview.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebDev Studio Debug</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+        .log {
+            background: #2d2d30;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 3px solid #007acc;
+        }
+        .error {
+            border-left-color: #f44747;
+        }
+        .success {
+            border-left-color: #4ec9b0;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebDev Studio Debug Console</h1>
+    <div id="console"></div>
+    
+    <h2>Tests</h2>
+    <button onclick="testMenuBar()">Test Menu Bar</button>
+    <button onclick="testResizers()">Test Resizers</button>
+    <button onclick="testFileExplorer()">Test File Explorer</button>
+    <button onclick="testComponents()">Test Components</button>
+    <button onclick="clearLog()">Clear Log</button>
+
+    <script>
+        function log(message, type = 'log') {
+            const console = document.getElementById('console');
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            console.appendChild(div);
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('console').innerHTML = '';
+        }
+
+        function testMenuBar() {
+            log('Testing menu bar functionality...');
+            
+            const menuItems = document.querySelectorAll('.menu-item');
+            log(`Found ${menuItems.length} menu items`);
+            
+            const dropdownMenus = document.querySelectorAll('.dropdown-menu');
+            log(`Found ${dropdownMenus.length} dropdown menus`);
+            
+            if (menuItems.length === 0) {
+                log('ERROR: No menu items found! Check if index.html is loading properly.', 'error');
+            } else {
+                log('Menu items found successfully', 'success');
+            }
+        }
+
+        function testResizers() {
+            log('Testing panel resizers...');
+            
+            const leftResizer = document.querySelector('.left-resizer');
+            const rightResizer = document.querySelector('.right-resizer');
+            
+            log(`Left resizer found: ${!!leftResizer}`);
+            log(`Right resizer found: ${!!rightResizer}`);
+            
+            if (!leftResizer || !rightResizer) {
+                log('ERROR: Resizers not found!', 'error');
+            } else {
+                log('Resizers found successfully', 'success');
+            }
+        }
+
+        function testFileExplorer() {
+            log('Testing file explorer...');
+            
+            const fileTree = document.getElementById('fileTree');
+            log(`File tree element found: ${!!fileTree}`);
+            
+            if (window.fileExplorer) {
+                log('FileExplorer instance exists', 'success');
+            } else {
+                log('ERROR: FileExplorer instance not found!', 'error');
+            }
+            
+            if (window.fileSystem) {
+                log('FileSystem instance exists', 'success');
+                log(`Files in system: ${window.fileSystem.files.size}`);
+            } else {
+                log('ERROR: FileSystem instance not found!', 'error');
+            }
+        }
+
+        function testComponents() {
+            log('Testing component initialization...');
+            
+            const components = [
+                'fileSystem',
+                'codeEditor', 
+                'fileExplorer',
+                'settingsManager',
+                'previewManager',
+                'chatGPT',
+                'webDevStudio'
+            ];
+            
+            components.forEach(comp => {
+                if (window[comp]) {
+                    log(`✓ ${comp} is initialized`, 'success');
+                } else {
+                    log(`✗ ${comp} is NOT initialized`, 'error');
+                }
+            });
+        }
+
+        // Auto-run tests when page loads
+        window.addEventListener('load', () => {
+            log('Debug page loaded, running automatic tests...');
+            setTimeout(() => {
+                testComponents();
+                testMenuBar();
+                testResizers();
+                testFileExplorer();
+            }, 1000);
+        });
+    </script>
+    
+    <!-- Load the main application scripts to test -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/xml-fold.min.js"></script>
+    <script src="js/fileSystem.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/fileExplorer.js"></script>
+    <script src="js/chatGPT.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/preview.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

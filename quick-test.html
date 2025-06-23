@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Test - WebDev Studio</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+        }
+        .test-item {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #3c3c3c;
+            border-radius: 4px;
+        }
+        .pass { border-color: #4ec9b0; background: rgba(78, 201, 176, 0.1); }
+        .fail { border-color: #f44747; background: rgba(244, 71, 71, 0.1); }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>WebDev Studio Quick Test</h1>
+    <div id="results"></div>
+    <button onclick="runTest()">Run Test</button>
+    <button onclick="testMenus()">Test Menus</button>
+    <button onclick="testFileSystem()">Test File System</button>
+
+    <script>
+        function addResult(message, status) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `test-item ${status}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+
+        function runTest() {
+            document.getElementById('results').innerHTML = '<h2>Test Results:</h2>';
+            
+            // Test external libraries
+            if (typeof CodeMirror !== 'undefined') {
+                addResult('✓ CodeMirror library loaded', 'pass');
+            } else {
+                addResult('✗ CodeMirror library missing', 'fail');
+            }
+            
+            // Test global components
+            const components = ['fileSystem', 'codeEditor', 'fileExplorer', 'webDevStudio'];
+            components.forEach(comp => {
+                if (window[comp]) {
+                    addResult(`✓ ${comp} component loaded`, 'pass');
+                } else {
+                    addResult(`✗ ${comp} component missing`, 'fail');
+                }
+            });
+            
+            // Test DOM elements (assuming they exist in parent)
+            const menuItems = document.querySelectorAll('.menu-item').length;
+            const resizers = document.querySelectorAll('.panel-resizer').length;
+            
+            addResult(`Menu items found: ${menuItems}`, menuItems > 0 ? 'pass' : 'fail');
+            addResult(`Panel resizers found: ${resizers}`, resizers > 0 ? 'pass' : 'fail');
+        }
+
+        function testMenus() {
+            addResult('Testing menu system...', 'pass');
+            
+            if (window.webDevStudio) {
+                // Try to trigger menu system
+                try {
+                    const fileMenu = document.querySelector('[data-menu="file"]');
+                    if (fileMenu) {
+                        fileMenu.click();
+                        addResult('✓ File menu clicked', 'pass');
+                        
+                        setTimeout(() => {
+                            const dropdown = document.getElementById('fileMenu');
+                            if (dropdown && dropdown.classList.contains('show')) {
+                                addResult('✓ File menu dropdown opened', 'pass');
+                            } else {
+                                addResult('✗ File menu dropdown not visible', 'fail');
+                            }
+                        }, 100);
+                    } else {
+                        addResult('✗ File menu element not found', 'fail');
+                    }
+                } catch (error) {
+                    addResult(`✗ Menu test error: ${error.message}`, 'fail');
+                }
+            } else {
+                addResult('✗ WebDevStudio not available for menu test', 'fail');
+            }
+        }
+
+        function testFileSystem() {
+            if (window.fileSystem) {
+                addResult('✓ FileSystem available', 'pass');
+                addResult(`Files: ${window.fileSystem.files.size}`, 'pass');
+                addResult(`Folders: ${window.fileSystem.folders.size}`, 'pass');
+                
+                // Test creating a file
+                try {
+                    const testFile = window.fileSystem.createFile('/test-quick.txt', 'Hello World');
+                    if (testFile) {
+                        addResult('✓ File creation test passed', 'pass');
+                    } else {
+                        addResult('✗ File creation test failed', 'fail');
+                    }
+                } catch (error) {
+                    addResult(`✗ File creation error: ${error.message}`, 'fail');
+                }
+            } else {
+                addResult('✗ FileSystem not available', 'fail');
+            }
+        }
+    </script>
+
+    <!-- Load the application scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="js/fileSystem.js"></script>
+    <script src="js/editor.js"></script>
+    <script src="js/fileExplorer.js"></script>
+    <script src="js/chatGPT.js"></script>
+    <script src="js/settings.js"></script>
+    <script src="js/preview.js"></script>
+    <script src="js/main.js"></script>
+    
+    <script>
+        // Auto-run test on load
+        window.addEventListener('load', () => {
+            setTimeout(runTest, 1000);
+        });
+    </script>
+</body>
+</html>
