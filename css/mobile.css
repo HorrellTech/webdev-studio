@@ -31,11 +31,32 @@
     display: none;
   }
   
+  .menubar {
+    display: flex !important;
+    z-index: 1000;
+  }
+  
   .toolbar {
     flex-wrap: wrap;
     height: auto;
     min-height: var(--toolbar-height);
     padding: var(--spacing-xs);
+  }
+  
+  /* Ensure proper editor height calculation */
+  .main-container {
+    height: calc(100vh - var(--header-height) - var(--toolbar-height) - var(--statusbar-height));
+    overflow: hidden;
+  }
+  
+  .editor-area {
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  .editor-wrapper {
+    height: 100%;
+    overflow: hidden;
   }
   
   .left-panel,
@@ -165,11 +186,16 @@
 @media (max-width: 480px) {
   .menubar {
     padding: 0 var(--spacing-xs);
+    display: flex !important;
+    visibility: visible !important;
+    z-index: 1000;
+    position: relative;
   }
   
   .menubar-left {
     flex: 1;
     justify-content: flex-start;
+    display: flex !important;
   }
   
   .menubar-center {
@@ -178,18 +204,37 @@
   
   .menubar-right {
     gap: var(--spacing-xs);
+    display: flex !important;
   }
   
   .menu-item {
     padding: 0 var(--spacing-sm);
+    display: block !important;
+    font-size: var(--font-size-sm);
   }
-  
-  .toolbar {
+    .toolbar {
     justify-content: space-between;
+    flex-wrap: wrap;
   }
   
   .toolbar-separator {
     display: none;
+  }
+  
+  /* Ensure editor area has proper height on mobile */
+  .editor-area {
+    overflow: hidden;
+    height: calc(100vh - var(--header-height) - var(--toolbar-height) - var(--statusbar-height));
+  }
+  
+  .editor-wrapper {
+    height: 100%;
+    overflow: hidden;
+  }
+  
+  .CodeMirror {
+    height: 100% !important;
+    overflow: auto !important;
   }
   
   .left-panel,
@@ -271,6 +316,34 @@
   .folder-children {
     margin-left: var(--spacing-md);
     padding-left: var(--spacing-xs);
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 320px) {
+  .menubar {
+    height: var(--header-height) !important;
+    min-height: var(--header-height) !important;
+    display: flex !important;
+    padding: 0 var(--spacing-xs);
+  }
+  
+  .menubar-left .menu-item {
+    font-size: var(--font-size-xs);
+    padding: 0 var(--spacing-xs);
+  }
+  
+  .menubar-right .btn-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .toolbar {
+    min-height: 36px;
+  }
+  
+  .main-container {
+    height: calc(100vh - var(--header-height) - 36px - var(--statusbar-height));
   }
 }
 

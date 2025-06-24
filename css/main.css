@@ -119,11 +119,31 @@ body {
   margin: 0 var(--spacing-xs);
 }
 
+/* Special styling for import/export buttons */
+#importProjectBtn {
+  color: var(--success-color);
+}
+
+#exportProjectBtn {
+  color: var(--accent-color);
+}
+
+#importProjectBtn:hover {
+  background: rgba(76, 175, 80, 0.1);
+  color: var(--success-color);
+}
+
+#exportProjectBtn:hover {
+  background: rgba(0, 122, 204, 0.1);
+  color: var(--accent-color);
+}
+
 /* Main Container */
 .main-container {
   flex: 1;
   display: flex;
   overflow: hidden;
+  height: calc(100vh - var(--header-height) - var(--toolbar-height) - var(--statusbar-height));
 }
 
 /* Panels */
@@ -290,6 +310,9 @@ body {
 .editor-area {
   flex: 1;
   position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .welcome-screen {
@@ -356,10 +379,15 @@ body {
 .editor-wrapper {
   height: 100%;
   width: 100%;
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .CodeMirror {
   height: 100% !important;
+  flex: 1 !important;
   font-family: var(--font-family-mono) !important;
   font-size: var(--font-size-lg) !important;
   background: var(--editor-bg) !important;

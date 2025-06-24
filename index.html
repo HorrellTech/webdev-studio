@@ -41,9 +41,16 @@
             </button>
             <button class="btn-icon" id="openFileBtn" title="Open File">
                 <i class="fas fa-folder-open"></i>
-            </button>
+            </button>            
             <button class="btn-icon" id="saveFileBtn" title="Save File">
                 <i class="fas fa-save"></i>
+            </button>
+            <div class="toolbar-separator"></div>
+            <button class="btn-icon" id="importProjectBtn" title="Import Project">
+                <i class="fas fa-upload"></i>
+            </button>
+            <button class="btn-icon" id="exportProjectBtn" title="Export Project">
+                <i class="fas fa-download"></i>
             </button>
             <div class="toolbar-separator"></div>
             <button class="btn-icon" id="undoBtn" title="Undo">
@@ -147,13 +154,13 @@
         </footer>
     </div>
 
-    <!-- Dropdown Menus -->
-    <div class="dropdown-menu" id="fileMenu">
+    <!-- Dropdown Menus -->    <div class="dropdown-menu" id="fileMenu">
         <div class="menu-option" data-action="new">New File</div>
         <div class="menu-option" data-action="open">Open File</div>
         <div class="menu-option" data-action="save">Save</div>
         <div class="menu-option" data-action="save-as">Save As</div>
         <div class="menu-separator"></div>
+        <div class="menu-option" data-action="import">Import Project</div>
         <div class="menu-option" data-action="export">Export Project</div>
     </div>
 
@@ -279,10 +286,17 @@
                             <div class="shortcut-item">
                                 <span>Open File</span>
                                 <kbd>Ctrl+O</kbd>
-                            </div>
-                            <div class="shortcut-item">
+                            </div>                            <div class="shortcut-item">
                                 <span>Save</span>
                                 <kbd>Ctrl+S</kbd>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Import Project</span>
+                                <kbd>Ctrl+Shift+I</kbd>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Export Project</span>
+                                <kbd>Ctrl+Shift+O</kbd>
                             </div>
                             <div class="shortcut-item">
                                 <span>Find</span>

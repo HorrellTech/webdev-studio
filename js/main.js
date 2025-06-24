@@ -136,8 +136,7 @@ class WebDevStudio {
         });
     }
     
-    handleMenuAction(action) {
-        switch (action) {
+    handleMenuAction(action) {        switch (action) {
             case 'new':
                 window.codeEditor?.createNewFile();
                 break;
@@ -149,6 +148,9 @@ class WebDevStudio {
                 break;
             case 'save-as':
                 this.saveFileAs();
+                break;
+            case 'import':
+                this.importProject();
                 break;
             case 'export':
                 this.exportProject();
@@ -208,10 +210,19 @@ class WebDevStudio {
         document.getElementById('openFileBtn').addEventListener('click', () => {
             window.codeEditor?.openFileDialog();
         });
-        
-        // Save file button
+          // Save file button
         document.getElementById('saveFileBtn').addEventListener('click', () => {
             window.codeEditor?.saveCurrentFile();
+        });
+        
+        // Import project button
+        document.getElementById('importProjectBtn').addEventListener('click', () => {
+            this.importProject();
+        });
+        
+        // Export project button
+        document.getElementById('exportProjectBtn').addEventListener('click', () => {
+            this.exportProject();
         });
         
         // Undo button
@@ -361,15 +372,25 @@ class WebDevStudio {
                         if (!e.shiftKey) {
                             e.preventDefault();
                             window.codeEditor?.createNewFile();
-                        }
-                        break;
-                    case 'o':
-                        e.preventDefault();
-                        window.codeEditor?.openFileDialog();
-                        break;
+                        }                        break;
                     case 's':
                         e.preventDefault();
                         window.codeEditor?.saveCurrentFile();
+                        break;
+                    case 'i':
+                        if (e.shiftKey) {
+                            e.preventDefault();
+                            this.importProject();
+                        }
+                        break;
+                    case 'o':
+                        if (e.shiftKey) {
+                            e.preventDefault();
+                            this.exportProject();
+                        } else {
+                            e.preventDefault();
+                            window.codeEditor?.openFileDialog();
+                        }
                         break;
                     case 'p':
                         if (e.shiftKey) {
@@ -433,10 +454,17 @@ class WebDevStudio {
             <div class="mobile-menu-item" data-action="open">
                 <i class="fas fa-folder-open"></i>
                 <span>Open File</span>
-            </div>
-            <div class="mobile-menu-item" data-action="save">
+            </div>            <div class="mobile-menu-item" data-action="save">
                 <i class="fas fa-save"></i>
                 <span>Save</span>
+            </div>
+            <div class="mobile-menu-item" data-action="import">
+                <i class="fas fa-upload"></i>
+                <span>Import Project</span>
+            </div>
+            <div class="mobile-menu-item" data-action="export">
+                <i class="fas fa-download"></i>
+                <span>Export Project</span>
             </div>
             <div class="mobile-menu-item" data-action="preview">
                 <i class="fas fa-eye"></i>
@@ -635,11 +663,48 @@ class WebDevStudio {
             
             URL.revokeObjectURL(url);
             this.showNotification('Project exported successfully', 'success');
-            
-        } catch (error) {
+              } catch (error) {
             console.error('Export failed:', error);
             this.showNotification('Failed to export project', 'error');
         }
+    }
+    
+    importProject() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        
+        input.onchange = (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                try {
+                    const projectData = event.target.result;
+                    const success = window.fileSystem.importProject(projectData);
+                    
+                    if (success) {
+                        // Close all open tabs
+                        if (window.codeEditor) {
+                            Array.from(window.codeEditor.tabs.keys()).forEach(path => {
+                                window.codeEditor.closeTab(path);
+                            });
+                        }
+                        
+                        this.showNotification('Project imported successfully', 'success');
+                    } else {
+                        throw new Error('Invalid project file format');
+                    }
+                } catch (error) {
+                    console.error('Import failed:', error);
+                    this.showNotification('Failed to import project: ' + error.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+        };
+        
+        input.click();
     }
     
     showAboutDialog() {
@@ -673,11 +738,12 @@ class WebDevStudio {
                 <h3>Keyboard Shortcuts</h3>
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px;">
                     <div>
-                        <h4>File Operations</h4>
-                        <div class="shortcut-list">
+                        <h4>File Operations</h4>                        <div class="shortcut-list">
                             <div><kbd>Ctrl+N</kbd> New File</div>
                             <div><kbd>Ctrl+O</kbd> Open File</div>
                             <div><kbd>Ctrl+S</kbd> Save File</div>
+                            <div><kbd>Ctrl+Shift+I</kbd> Import Project</div>
+                            <div><kbd>Ctrl+Shift+O</kbd> Export Project</div>
                             <div><kbd>Ctrl+Shift+P</kbd> Preview</div>
                         </div>
                     </div>
