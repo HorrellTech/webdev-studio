@@ -53,6 +53,10 @@
                 <i class="fas fa-download"></i>
             </button>
             <div class="toolbar-separator"></div>
+            <button class="btn-icon" id="googleDriveBtn" title="Google Drive" style="background: #4285f4; color: white;">
+                <i class="fab fa-google-drive"></i>
+            </button>
+            <div class="toolbar-separator"></div>
             <button class="btn-icon" id="undoBtn" title="Undo">
                 <i class="fas fa-undo"></i>
             </button>
@@ -162,6 +166,8 @@
         <div class="menu-separator"></div>
         <div class="menu-option" data-action="import">Import Project</div>
         <div class="menu-option" data-action="export">Export Project</div>
+        <div class="menu-separator"></div>
+        <div class="menu-option" data-action="google-drive">Google Drive</div>
     </div>
 
     <div class="dropdown-menu" id="editMenu">
@@ -205,6 +211,7 @@
                     <div class="settings-tab" data-tab="editor">Editor</div>
                     <div class="settings-tab" data-tab="theme">Theme</div>
                     <div class="settings-tab" data-tab="ai">AI Assistant</div>
+                    <div class="settings-tab" data-tab="drive">Google Drive</div>
                     <div class="settings-tab" data-tab="shortcuts">Shortcuts</div>
                 </div>
                 <div class="settings-content">
@@ -276,6 +283,29 @@
                             <input type="number" id="maxTokens" value="2000" min="100" max="4000">
                         </div>
                     </div>
+                    <div class="settings-panel" id="driveSettings">
+                        <h3>Google Drive Settings</h3>
+                        <div class="setting-group">
+                            <label>Google Drive Client ID</label>
+                            <input type="text" id="googleClientId" placeholder="Your Google OAuth Client ID">
+                            <small>Create a Google OAuth Client ID at <a href="https://console.developers.google.com" target="_blank">Google Cloud Console</a></small>
+                        </div>
+                        <div class="setting-group">
+                            <label>API Key</label>
+                            <input type="text" id="googleApiKey" placeholder="Your Google API Key">
+                            <small>Create an API Key with Google Drive API access enabled</small>
+                        </div>
+                        <div class="setting-group">
+                            <label>Auto-Login</label>
+                            <input type="checkbox" id="googleDriveAutoLogin" checked>
+                            <small>Automatically sign in to Google Drive when the app starts</small>
+                        </div>
+                        <div class="setting-group">
+                            <label>Default Folder</label>
+                            <input type="text" id="googleDriveFolder" placeholder="WebDev Studio Projects" value="WebDev Studio Projects">
+                            <small>Default folder name for saving projects (will be created if it doesn't exist)</small>
+                        </div>
+                    </div>
                     <div class="settings-panel" id="shortcutsSettings">
                         <h3>Keyboard Shortcuts</h3>
                         <div class="shortcuts-list">
@@ -297,6 +327,10 @@
                             <div class="shortcut-item">
                                 <span>Export Project</span>
                                 <kbd>Ctrl+Shift+O</kbd>
+                            </div>
+                            <div class="shortcut-item">
+                                <span>Google Drive</span>
+                                <kbd>Ctrl+Shift+D</kbd>
                             </div>
                             <div class="shortcut-item">
                                 <span>Find</span>
@@ -333,30 +367,126 @@
                 <button class="btn-close" id="closePreviewBtn">
                     <i class="fas fa-times"></i>
                 </button>
+            </div>            <div class="modal-body">
+                <iframe id="previewFrame"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Drive Modal -->
+    <div class="modal" id="googleDriveModal">
+        <div class="modal-content google-drive-modal">
+            <div class="modal-header">
+                <h2>Google Drive</h2>
+                <div class="drive-controls">
+                    <button class="btn-icon" id="refreshDriveBtn" title="Refresh">
+                        <i class="fas fa-sync"></i>
+                    </button>
+                </div>
+                <button class="btn-close" id="closeGoogleDriveBtn">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
             <div class="modal-body">
-                <iframe id="previewFrame" sandbox="allow-scripts allow-same-origin"></iframe>
+                <div class="drive-sidebar">
+                    <div class="drive-auth-section">
+                        <div id="driveAuthStatus" class="auth-status">
+                            <div class="auth-disconnected">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>Connect to Google Drive</p>
+                                <button class="btn-primary" id="driveSignInBtn">Sign In</button>
+                            </div>
+                            <div class="auth-connected" style="display: none;">
+                                <i class="fas fa-check-circle" style="color: #4caf50;"></i>
+                                <p id="driveUserInfo">Connected</p>
+                                <button class="btn-secondary" id="driveSignOutBtn">Sign Out</button>
+                            </div>
+                        </div>
+                        
+                        <!-- New Help Section -->
+                        <div class="drive-help-section">
+                            <div class="help-item">
+                                <i class="fas fa-info-circle" style="color: #2196f3;"></i>
+                                <div class="help-content">
+                                    <strong>Need to set up Google Drive?</strong>
+                                    <p>Configure your Google Drive credentials in Settings to enable cloud storage integration.</p>
+                                    <button class="btn-link" id="openDriveSettingsBtn">
+                                        <i class="fas fa-cog"></i>
+                                        Open Google Drive Settings
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="help-item">
+                                <i class="fas fa-question-circle" style="color: #ff9800;"></i>
+                                <div class="help-content">
+                                    <strong>How to get credentials:</strong>
+                                    <ol style="margin: 8px 0; padding-left: 16px; font-size: 12px;">
+                                        <li>Go to <a href="https://console.developers.google.com" target="_blank">Google Cloud Console</a></li>
+                                        <li>Create a project or select existing one</li>
+                                        <li>Enable Google Drive API</li>
+                                        <li>Create OAuth 2.0 Client ID (Web application)</li>
+                                        <li>Create API Key with Drive API access</li>
+                                        <li>Add your domain to authorized origins</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="drive-settings">
+                            <div class="setting-group">
+                                <label>
+                                    <input type="checkbox" id="autoLoginDrive" checked>
+                                    Auto-login on startup
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="drive-content">
+                    <div class="drive-actions">
+                        <button class="btn-primary" id="saveToGoogleDriveBtn" disabled>
+                            <i class="fas fa-save"></i>
+                            Save Project to Drive
+                        </button>
+                        <button class="btn-secondary" id="createFolderBtn" disabled>
+                            <i class="fas fa-folder-plus"></i>
+                            New Folder
+                        </button>
+                    </div>
+                    <div class="drive-breadcrumb">
+                        <span class="breadcrumb-item active" data-folder-id="root">
+                            <i class="fas fa-home"></i>
+                            My Drive
+                        </span>
+                    </div>
+                    <div class="drive-files" id="driveFilesList">
+                        <div class="drive-loading">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <p>Please sign in to view your Google Drive files</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- Loading Scripts -->
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closetag.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldcode.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/xml-fold.min.js"></script>
-    <script src="js/fileSystem.js"></script>
-    <script src="js/editor.js"></script>
-    <script src="js/fileExplorer.js"></script>
-    <script src="js/chatGPT.js"></script>
+    
+    <!-- Custom Scripts -->
     <script src="js/settings.js"></script>
+    <script src="js/fileSystem.js"></script>
+    <script src="js/fileExplorer.js"></script>
+    <script src="js/editor.js"></script>
     <script src="js/preview.js"></script>
+    <script src="js/chatGPT.js"></script>
+    <script src="js/googleDrive.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>

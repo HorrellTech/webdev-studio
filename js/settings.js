@@ -22,6 +22,12 @@ class SettingsManager {
                 model: 'gpt-3.5-turbo',
                 maxTokens: 2000
             },
+            drive: {
+                clientId: '',
+                apiKey: '',
+                autoLogin: true,
+                defaultFolder: 'WebDev Studio Projects'
+            },
             shortcuts: {
                 // Keyboard shortcuts will be handled separately
             }
@@ -87,57 +93,78 @@ class SettingsManager {
         document.getElementById('autoSave').addEventListener('change', (e) => {
             this.updateSetting('general', 'autoSave', e.target.checked);
         });
-        
+
         document.getElementById('showWelcome').addEventListener('change', (e) => {
             this.updateSetting('general', 'showWelcome', e.target.checked);
         });
-        
+
         // Editor settings
         document.getElementById('fontSize').addEventListener('change', (e) => {
             this.updateSetting('editor', 'fontSize', parseInt(e.target.value));
             this.applyEditorSettings();
         });
-        
+
         document.getElementById('tabSize').addEventListener('change', (e) => {
             this.updateSetting('editor', 'tabSize', parseInt(e.target.value));
             this.applyEditorSettings();
         });
-        
+
         document.getElementById('wordWrap').addEventListener('change', (e) => {
             this.updateSetting('editor', 'wordWrap', e.target.checked);
             this.applyEditorSettings();
         });
-        
+
         document.getElementById('lineNumbers').addEventListener('change', (e) => {
             this.updateSetting('editor', 'lineNumbers', e.target.checked);
             this.applyEditorSettings();
         });
-        
+
         // Theme settings
         document.getElementById('colorTheme').addEventListener('change', (e) => {
             this.updateSetting('theme', 'colorTheme', e.target.value);
             this.applyTheme();
         });
-        
+
         document.getElementById('customCSS').addEventListener('input', (e) => {
             this.updateSetting('theme', 'customCSS', e.target.value);
             this.applyCustomCSS();
         });
-        
+
         // AI settings
         document.getElementById('openaiApiKey').addEventListener('change', (e) => {
             this.updateSetting('ai', 'openaiApiKey', e.target.value);
             this.applyAISettings();
         });
-        
+
         document.getElementById('aiModel').addEventListener('change', (e) => {
             this.updateSetting('ai', 'model', e.target.value);
             this.applyAISettings();
         });
-        
+
         document.getElementById('maxTokens').addEventListener('change', (e) => {
             this.updateSetting('ai', 'maxTokens', parseInt(e.target.value));
             this.applyAISettings();
+        });
+
+        // Google Drive settings
+        document.getElementById('googleClientId').addEventListener('change', (e) => {
+            this.updateSetting('drive', 'clientId', e.target.value);
+            this.applyDriveSettings();
+        });
+
+        document.getElementById('googleApiKey').addEventListener('change', (e) => {
+            this.updateSetting('drive', 'apiKey', e.target.value);
+            this.applyDriveSettings();
+        });
+
+        document.getElementById('googleDriveAutoLogin').addEventListener('change', (e) => {
+            this.updateSetting('drive', 'autoLogin', e.target.checked);
+            this.applyDriveSettings();
+        });
+
+        document.getElementById('googleDriveFolder').addEventListener('change', (e) => {
+            this.updateSetting('drive', 'defaultFolder', e.target.value);
+            this.applyDriveSettings();
         });
     }
     
@@ -173,27 +200,34 @@ class SettingsManager {
         // General settings
         document.getElementById('autoSave').checked = this.getSetting('general', 'autoSave', true);
         document.getElementById('showWelcome').checked = this.getSetting('general', 'showWelcome', true);
-        
+
         // Editor settings
         document.getElementById('fontSize').value = this.getSetting('editor', 'fontSize', 14);
         document.getElementById('tabSize').value = this.getSetting('editor', 'tabSize', 2);
         document.getElementById('wordWrap').checked = this.getSetting('editor', 'wordWrap', false);
         document.getElementById('lineNumbers').checked = this.getSetting('editor', 'lineNumbers', true);
-        
+
         // Theme settings
         document.getElementById('colorTheme').value = this.getSetting('theme', 'colorTheme', 'dark');
         document.getElementById('customCSS').value = this.getSetting('theme', 'customCSS', '');
-        
+
         // AI settings
         document.getElementById('openaiApiKey').value = this.getSetting('ai', 'openaiApiKey', '');
         document.getElementById('aiModel').value = this.getSetting('ai', 'model', 'gpt-3.5-turbo');
         document.getElementById('maxTokens').value = this.getSetting('ai', 'maxTokens', 2000);
+
+        // Google Drive settings
+        document.getElementById('googleClientId').value = this.getSetting('drive', 'clientId', '');
+        document.getElementById('googleApiKey').value = this.getSetting('drive', 'apiKey', '');
+        document.getElementById('googleDriveAutoLogin').checked = this.getSetting('drive', 'autoLogin', true);
+        document.getElementById('googleDriveFolder').value = this.getSetting('drive', 'defaultFolder', 'WebDev Studio Projects');
     }
     
     applySettings() {
         this.applyTheme();
         this.applyEditorSettings();
         this.applyAISettings();
+        this.applyDriveSettings();
         this.applyCustomCSS();
     }
     
@@ -230,6 +264,19 @@ class SettingsManager {
             };
             
             window.chatGPT.updateSettings(aiSettings);
+        }
+    }
+    
+    applyDriveSettings() {
+        if (window.googleDriveManager) {
+            const driveSettings = {
+                clientId: this.getSetting('drive', 'clientId', ''),
+                apiKey: this.getSetting('drive', 'apiKey', ''),
+                autoLogin: this.getSetting('drive', 'autoLogin', true),
+                defaultFolder: this.getSetting('drive', 'defaultFolder', 'WebDev Studio Projects')
+            };
+            
+            window.googleDriveManager.updateSettings(driveSettings);
         }
     }
     
@@ -297,6 +344,7 @@ class SettingsManager {
         if (confirm('Are you sure you want to reset all settings to default? This cannot be undone.')) {
             localStorage.removeItem('webdev-studio-settings');
             localStorage.removeItem('webdev-studio-ai-settings');
+            localStorage.removeItem('webdev-studio-drive-settings');
             
             // Reset to defaults
             this.settings = {
@@ -318,6 +366,12 @@ class SettingsManager {
                     openaiApiKey: '',
                     model: 'gpt-3.5-turbo',
                     maxTokens: 2000
+                },
+                drive: {
+                    clientId: '',
+                    apiKey: '',
+                    autoLogin: true,
+                    defaultFolder: 'WebDev Studio Projects'
                 }
             };
             

@@ -23,7 +23,9 @@ class WebDevStudio {
             console.log('DOM ready, initializing components immediately...');
             this.initializeComponents();
         }
-    }    initializeComponents() {
+    }    
+    
+    initializeComponents() {
         try {
             // Initialize components in order
             this.setupMenuSystem();
@@ -136,7 +138,8 @@ class WebDevStudio {
         });
     }
     
-    handleMenuAction(action) {        switch (action) {
+    handleMenuAction(action) {
+        switch (action) {
             case 'new':
                 window.codeEditor?.createNewFile();
                 break;
@@ -154,6 +157,9 @@ class WebDevStudio {
                 break;
             case 'export':
                 this.exportProject();
+                break;
+            case 'google-drive':
+                window.googleDriveManager?.openDriveModal();
                 break;
             case 'undo':
                 window.codeEditor?.undo();
@@ -410,6 +416,12 @@ class WebDevStudio {
                             this.togglePanel('right');
                         }
                         break;
+                    case 'd':
+                        if (e.shiftKey) {
+                            e.preventDefault();
+                            window.googleDriveManager?.openDriveModal();
+                        }
+                        break;
                     case ',':
                         e.preventDefault();
                         window.settingsManager?.openSettingsModal();
@@ -465,6 +477,10 @@ class WebDevStudio {
             <div class="mobile-menu-item" data-action="export">
                 <i class="fas fa-download"></i>
                 <span>Export Project</span>
+            </div>
+            <div class="mobile-menu-item" data-action="google-drive">
+                <i class="fab fa-google-drive"></i>
+                <span>Google Drive</span>
             </div>
             <div class="mobile-menu-item" data-action="preview">
                 <i class="fas fa-eye"></i>
@@ -534,6 +550,24 @@ class WebDevStudio {
             mobileToggle.style.display = 'none';
             menuItems.forEach(item => item.style.display = 'flex');
             this.hideMobilePanels();
+        }
+    }
+
+    openSettings(activeTab = 'general') {
+        const modal = document.getElementById('settingsModal');
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+        
+        // Switch to the specified tab
+        document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));
+        document.querySelectorAll('.settings-panel').forEach(panel => panel.classList.remove('active'));
+        
+        const targetTab = document.querySelector(`[data-tab="${activeTab}"]`);
+        const targetPanel = document.getElementById(`${activeTab}Settings`);
+        
+        if (targetTab && targetPanel) {
+            targetTab.classList.add('active');
+            targetPanel.classList.add('active');
         }
     }
     
@@ -744,6 +778,7 @@ class WebDevStudio {
                             <div><kbd>Ctrl+S</kbd> Save File</div>
                             <div><kbd>Ctrl+Shift+I</kbd> Import Project</div>
                             <div><kbd>Ctrl+Shift+O</kbd> Export Project</div>
+                            <div><kbd>Ctrl+Shift+D</kbd> Google Drive</div>
                             <div><kbd>Ctrl+Shift+P</kbd> Preview</div>
                         </div>
                     </div>

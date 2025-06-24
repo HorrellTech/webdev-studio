@@ -264,6 +264,26 @@
     margin-right: var(--spacing-xs);
     margin-bottom: var(--spacing-xs);
   }
+
+  /* Google Drive modal mobile */
+  .modal-body:has(.drive-sidebar) {
+    flex-direction: column;
+  }
+  
+  .drive-sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--border-color);
+  }
+  
+  .drive-actions {
+    justify-content: center;
+  }
+  
+  .drive-breadcrumb {
+    justify-content: center;
+    text-align: center;
+  }
   
   .welcome-content h1 {
     font-size: 1.5rem;
