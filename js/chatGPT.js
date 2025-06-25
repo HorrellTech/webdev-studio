@@ -8,6 +8,11 @@ class ChatGPTAssistant {
         this.messages = [];
         this.isTyping = false;
 
+        // Add message history tracking
+        this.messageHistory = [];
+        this.historyIndex = -1;
+        this.currentDraft = '';
+
         this.initialize();
     }
 
@@ -42,10 +47,94 @@ class ChatGPTAssistant {
             }
         });
 
-        // Auto-resize input
-        chatInput.addEventListener('input', () => {
+        // Add arrow key navigation for message history
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                this.navigateHistory('up');
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                this.navigateHistory('down');
+            } else if (e.key === 'Escape') {
+                // Clear current input and reset history navigation
+                this.resetHistoryNavigation();
+            }
+        });
+
+        // Track current draft when user starts typing
+        chatInput.addEventListener('input', (e) => {
+            if (this.historyIndex === -1) {
+                this.currentDraft = e.target.value;
+            }
             this.autoResizeInput(chatInput);
         });
+    }
+
+    navigateHistory(direction) {
+        const chatInput = document.getElementById('chatInput');
+        const indicator = document.getElementById('historyIndicator');
+
+        if (this.messageHistory.length === 0) return;
+
+        if (direction === 'up') {
+            if (this.historyIndex === -1) {
+                // First time pressing up - save current draft and go to most recent
+                this.currentDraft = chatInput.value;
+                this.historyIndex = this.messageHistory.length - 1;
+            } else if (this.historyIndex > 0) {
+                // Go to previous message
+                this.historyIndex--;
+            }
+
+            chatInput.value = this.messageHistory[this.historyIndex];
+        } else if (direction === 'down') {
+            if (this.historyIndex === -1) return; // Already at current draft
+
+            if (this.historyIndex < this.messageHistory.length - 1) {
+                // Go to next message
+                this.historyIndex++;
+                chatInput.value = this.messageHistory[this.historyIndex];
+            } else {
+                // Return to current draft
+                this.historyIndex = -1;
+                chatInput.value = this.currentDraft;
+            }
+        }
+
+        // Update visual indicator
+        this.updateHistoryIndicator();
+
+        // Auto-resize input and move cursor to end
+        this.autoResizeInput(chatInput);
+        chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+    }
+
+    updateHistoryIndicator() {
+        const indicator = document.getElementById('historyIndicator');
+        if (!indicator) return;
+
+        if (this.historyIndex === -1) {
+            indicator.classList.remove('show');
+        } else {
+            const position = this.messageHistory.length - this.historyIndex;
+            const total = this.messageHistory.length;
+            indicator.textContent = `${position}/${total}`;
+            indicator.classList.add('show');
+        }
+    }
+
+    resetHistoryNavigation() {
+        const chatInput = document.getElementById('chatInput');
+        const indicator = document.getElementById('historyIndicator');
+
+        this.historyIndex = -1;
+        this.currentDraft = '';
+        chatInput.value = '';
+        this.autoResizeInput(chatInput);
+
+        if (indicator) {
+            indicator.classList.remove('show');
+        }
     }
 
     loadSettings() {
@@ -53,13 +142,21 @@ class ChatGPTAssistant {
         this.apiKey = settings.apiKey || '';
         this.model = settings.model || 'gpt-3.5-turbo';
         this.maxTokens = settings.maxTokens || 2000;
+
+        // Load message history
+        this.messageHistory = settings.messageHistory || [];
+        // Limit history to last 50 messages to prevent excessive storage
+        if (this.messageHistory.length > 50) {
+            this.messageHistory = this.messageHistory.slice(-50);
+        }
     }
 
     saveSettings() {
         const settings = {
             apiKey: this.apiKey,
             model: this.model,
-            maxTokens: this.maxTokens
+            maxTokens: this.maxTokens,
+            messageHistory: this.messageHistory
         };
         localStorage.setItem('webdev-studio-ai-settings', JSON.stringify(settings));
     }
@@ -100,9 +197,27 @@ class ChatGPTAssistant {
 
         if (!message || !this.apiKey || this.isTyping) return;
 
+        // Add message to history (avoid duplicates)
+        if (this.messageHistory.length === 0 || this.messageHistory[this.messageHistory.length - 1] !== message) {
+            this.messageHistory.push(message);
+
+            // Limit history to 50 messages
+            if (this.messageHistory.length > 50) {
+                this.messageHistory.shift();
+            }
+
+            // Save to localStorage
+            this.saveSettings();
+        }
+
+        // Reset history navigation
+        this.historyIndex = -1;
+        this.currentDraft = '';
+
         // Add user message to chat
         this.addUserMessage(message);
         chatInput.value = '';
+        this.autoResizeInput(chatInput);
 
         // Show typing indicator
         this.showTypingIndicator();
@@ -221,6 +336,15 @@ class ChatGPTAssistant {
         if (type === 'assistant') {
             // Process markdown-like formatting
             messageContent.innerHTML = this.formatMessage(content);
+
+            // Apply syntax highlighting after DOM insertion
+            setTimeout(() => {
+                messageContent.querySelectorAll('pre code').forEach((block) => {
+                    if (window.Prism) {
+                        Prism.highlightElement(block);
+                    }
+                });
+            }, 0);
         } else {
             messageContent.textContent = content;
         }
@@ -250,8 +374,6 @@ class ChatGPTAssistant {
             // Code blocks with language detection and copy button
             .replace(/```(\w+)?\n?([\s\S]*?)```/g, (match, language, code) => {
                 const lang = language || 'text';
-
-                // Store the original unescaped code for copying
                 const originalCode = code.trim();
 
                 // Escape for display
@@ -264,10 +386,68 @@ class ChatGPTAssistant {
 
                 const codeId = 'code-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
 
+                // Map common language aliases to Prism language classes
+                const languageMap = {
+                    'js': 'javascript',
+                    'ts': 'typescript',
+                    'py': 'python',
+                    'rb': 'ruby',
+                    'php': 'php',
+                    'java': 'java',
+                    'c': 'c',
+                    'cpp': 'cpp',
+                    'cs': 'csharp',
+                    'go': 'go',
+                    'rust': 'rust',
+                    'swift': 'swift',
+                    'kotlin': 'kotlin',
+                    'dart': 'dart',
+                    'r': 'r',
+                    'sql': 'sql',
+                    'bash': 'bash',
+                    'sh': 'bash',
+                    'powershell': 'powershell',
+                    'json': 'json',
+                    'xml': 'xml',
+                    'yaml': 'yaml',
+                    'yml': 'yaml',
+                    'toml': 'toml',
+                    'ini': 'ini',
+                    'dockerfile': 'docker',
+                    'makefile': 'makefile'
+                };
+
+                const prismLang = languageMap[lang.toLowerCase()] || lang.toLowerCase();
+
                 return `
-                <div class="code-block-container">
-                    <div class="code-block-header">
-                        <span class="code-language">${lang}</span>
+            <div class="code-block-container">
+                <div class="code-block-header">
+                    <span class="code-language">${lang}</span>
+                    <div class="code-actions">
+                        <button class="apply-code-btn" onclick="chatGPT.applyCodeToFile('${codeId}')" title="Apply to current file">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17,21 17,13 7,13 7,21"></polyline>
+                                <polyline points="7,3 7,8 15,8"></polyline>
+                            </svg>
+                            Apply
+                        </button>
+                        <button class="insert-code-btn" onclick="chatGPT.insertCodeAtCursor('${codeId}')" title="Insert at cursor">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 20h9"></path>
+                                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                            </svg>
+                            Insert
+                        </button>
+                        <button class="toggle-wrap-btn" onclick="chatGPT.toggleCodeWrap('${codeId}')" title="Toggle line wrap">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 6h18"></path>
+                                <path d="M3 12h15l-3-3"></path>
+                                <path d="M3 12l3 3"></path>
+                                <path d="M3 18h18"></path>
+                            </svg>
+                            Wrap
+                        </button>
                         <button class="copy-code-btn" onclick="chatGPT.copyCode('${codeId}', this)" title="Copy code">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -276,11 +456,12 @@ class ChatGPTAssistant {
                             Copy
                         </button>
                     </div>
-                    <pre class="code-block ${lang}"><code id="${codeId}" data-original="${btoa(originalCode)}">${escapedCode}</code></pre>
                 </div>
-            `;
+                <pre class="code-block language-${prismLang}" data-wrapped="false"><code id="${codeId}" data-original="${btoa(originalCode)}" class="language-${prismLang}">${escapedCode}</code></pre>
+            </div>
+        `;
             })
-            // Inline code - escape HTML entities
+            // ...rest of your existing formatting code...
             .replace(/`([^`]+)`/g, (match, code) => {
                 const escapedCode = code
                     .replace(/&/g, '&amp;')
@@ -290,14 +471,167 @@ class ChatGPTAssistant {
                     .replace(/'/g, '&#39;');
                 return `<code class="inline-code">${escapedCode}</code>`;
             })
-            // Bold
             .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-            // Italic
             .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-            // Line breaks
             .replace(/\n/g, '<br>');
 
         return formatted;
+    }
+
+    applyCodeToFile(codeId) {
+        const codeElement = document.getElementById(codeId);
+        if (!codeElement) return;
+
+        // Check if there's a current file open
+        if (!window.codeEditor || !window.codeEditor.currentFile) {
+            this.showNotification('No file is currently open', 'warning');
+            return;
+        }
+
+        // Get the original code from data attribute (base64 encoded)
+        const originalCode = codeElement.getAttribute('data-original');
+        let codeText;
+
+        if (originalCode) {
+            // Decode the original code
+            try {
+                codeText = atob(originalCode);
+            } catch (e) {
+                // Fallback to textContent if decoding fails
+                codeText = codeElement.textContent;
+            }
+        } else {
+            codeText = codeElement.textContent;
+        }
+
+        // Show confirmation dialog
+        const currentFileName = window.codeEditor.currentFile.path.split('/').pop();
+        const confirmed = confirm(`Apply this code to ${currentFileName}?\n\nThis will replace the current file content.`);
+
+        if (!confirmed) return;
+
+        try {
+            // Apply the code to the current file
+            window.codeEditor.setValue(codeText);
+
+            // Mark the file as modified
+            window.codeEditor.markTabAsModified(window.codeEditor.currentFile.path);
+
+            // Update status bar
+            window.codeEditor.updateStatusBar();
+
+            // Show success notification
+            this.showNotification(`Code applied to ${currentFileName}`, 'success');
+
+            // Focus the editor
+            window.codeEditor.focus();
+
+        } catch (error) {
+            console.error('Error applying code:', error);
+            this.showNotification('Failed to apply code to file', 'error');
+        }
+    }
+
+    insertCodeAtCursor(codeId) {
+        const codeElement = document.getElementById(codeId);
+        if (!codeElement) return;
+
+        // Check if there's a current file open
+        if (!window.codeEditor || !window.codeEditor.currentFile) {
+            this.showNotification('No file is currently open', 'warning');
+            return;
+        }
+
+        // Get the original code
+        const originalCode = codeElement.getAttribute('data-original');
+        let codeText;
+
+        if (originalCode) {
+            try {
+                codeText = atob(originalCode);
+            } catch (e) {
+                codeText = codeElement.textContent;
+            }
+        } else {
+            codeText = codeElement.textContent;
+        }
+
+        try {
+            // Get current cursor position
+            const cursor = window.codeEditor.editor.getCursor();
+            
+            // Insert code at cursor position
+            window.codeEditor.editor.replaceRange(codeText, cursor);
+            
+            // Mark the file as modified
+            window.codeEditor.markTabAsModified(window.codeEditor.currentFile.path);
+            
+            // Update status bar
+            window.codeEditor.updateStatusBar();
+            
+            // Show success notification
+            this.showNotification('Code inserted at cursor position', 'success');
+            
+            // Focus the editor
+            window.codeEditor.focus();
+            
+        } catch (error) {
+            console.error('Error inserting code:', error);
+            this.showNotification('Failed to insert code', 'error');
+        }
+    }
+
+    showNotification(message, type = 'info') {
+        // Use the existing notification system from the main app
+        if (window.webDevStudio && window.webDevStudio.showNotification) {
+            window.webDevStudio.showNotification(message, type);
+        } else {
+            // Fallback to console or simple alert
+            console.log(`${type.toUpperCase()}: ${message}`);
+        }
+    }
+
+    toggleCodeWrap(codeId) {
+        const codeElement = document.getElementById(codeId);
+        const preElement = codeElement?.closest('pre');
+        const toggleBtn = preElement?.closest('.code-block-container')?.querySelector('.toggle-wrap-btn');
+
+        if (!preElement || !toggleBtn) return;
+
+        const isWrapped = preElement.getAttribute('data-wrapped') === 'true';
+
+        if (isWrapped) {
+            // Switch to no-wrap (single line with scroll)
+            preElement.setAttribute('data-wrapped', 'false');
+            preElement.style.whiteSpace = 'pre';
+            preElement.style.wordWrap = 'normal';
+            preElement.style.overflowX = 'auto';
+            toggleBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18"></path>
+                <path d="M3 12h15l-3-3"></path>
+                <path d="M3 12l3 3"></path>
+                <path d="M3 18h18"></path>
+            </svg>
+            Wrap
+        `;
+            toggleBtn.title = 'Enable line wrap';
+        } else {
+            // Switch to wrap (multi-line)
+            preElement.setAttribute('data-wrapped', 'true');
+            preElement.style.whiteSpace = 'pre-wrap';
+            preElement.style.wordWrap = 'break-word';
+            preElement.style.overflowX = 'visible';
+            toggleBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18"></path>
+                <path d="M3 12h18"></path>
+                <path d="M3 18h18"></path>
+            </svg>
+            No Wrap
+        `;
+            toggleBtn.title = 'Disable line wrap';
+        }
     }
 
     copyCode(codeId, button) {
@@ -392,7 +726,26 @@ class ChatGPTAssistant {
         this.messages = [];
         const chatMessages = document.getElementById('chatMessages');
         chatMessages.innerHTML = '';
-        this.addSystemMessage('Chat cleared. How can I help you?');
+
+        // Reset history navigation but keep message history
+        this.historyIndex = -1;
+        this.currentDraft = '';
+
+        this.addSystemMessage('Hello there! How can I help you?');
+    }
+
+    clearHistory() {
+        this.messageHistory = [];
+        this.historyIndex = -1;
+        this.currentDraft = '';
+        this.saveSettings();
+
+        // Clear input
+        const chatInput = document.getElementById('chatInput');
+        chatInput.value = '';
+        this.autoResizeInput(chatInput);
+
+        this.addSystemMessage('Message history cleared.');
     }
 
     exportChat() {
@@ -514,101 +867,250 @@ const chatCSS = `
         letter-spacing: 0.5px;
     }
     
-    .copy-code-btn {
+    .code-actions {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+    }
+    
+    /* Base button styling for all code action buttons */
+    .code-actions button {
         display: flex;
         align-items: center;
         gap: 4px;
-        background: #6c757d;
-        color: white;
         border: none;
-        padding: 4px 8px;
+        padding: 6px 10px;
         border-radius: 4px;
         font-size: 0.75em;
+        font-weight: 500;
         cursor: pointer;
         transition: all 0.2s ease;
+        color: white;
+        text-decoration: none;
+        font-family: inherit;
+        line-height: 1;
+        white-space: nowrap;
+    }
+    
+    .code-actions button:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
+    }
+    
+    .code-actions button:active {
+        transform: translateY(1px);
+    }
+    
+    .code-actions button svg {
+        flex-shrink: 0;
+    }
+    
+    /* Apply button styling */
+    .apply-code-btn {
+        background: #28a745;
+        border: 1px solid #1e7e34;
+    }
+    
+    .apply-code-btn:hover {
+        background: #218838;
+        border-color: #1e7e34;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+    }
+    
+    .apply-code-btn:disabled {
+        background: #6c757d;
+        border-color: #5a6268;
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+    
+    .apply-code-btn:disabled:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    /* Insert button styling */
+    .insert-code-btn {
+        background: #fd7e14;
+        border: 1px solid #dc6502;
+    }
+    
+    .insert-code-btn:hover {
+        background: #e66a00;
+        border-color: #dc6502;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(253, 126, 20, 0.3);
+    }
+    
+    .insert-code-btn:disabled {
+        background: #6c757d;
+        border-color: #5a6268;
+        cursor: not-allowed;
+        opacity: 0.65;
+    }
+    
+    .insert-code-btn:disabled:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    /* Toggle wrap button styling */
+    .toggle-wrap-btn {
+        background: #17a2b8;
+        border: 1px solid #138496;
+    }
+    
+    .toggle-wrap-btn:hover {
+        background: #138496;
+        border-color: #117a8b;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(23, 162, 184, 0.3);
+    }
+    
+    /* Copy button styling */
+    .copy-code-btn {
+        background: #6c757d;
+        border: 1px solid #5a6268;
     }
     
     .copy-code-btn:hover {
         background: #5a6268;
+        border-color: #545b62;
         transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(108, 117, 125, 0.3);
     }
     
     .copy-code-btn.copied {
         background: #28a745;
+        border-color: #1e7e34;
     }
     
+    /* Code block styling - Default: No wrap (single line with scroll) */
     .code-block {
-        background: #2d3748;
-        color: #e2e8f0;
-        padding: 16px;
-        margin: 0;
-        overflow-x: auto;
-        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-        font-size: 0.9em;
-        line-height: 1.5;
-        white-space: pre;
-        tab-size: 2;
+        background: #2d3748 !important;
+        color: #e2e8f0 !important;
+        padding: 16px !important;
+        margin: 0 !important;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+        font-size: 0.9em !important;
+        line-height: 1.5 !important;
+        tab-size: 2 !important;
+        border-radius: 0 !important;
+        
+        /* Default: No wrap mode */
+        white-space: pre !important;
+        word-wrap: normal !important;
+        word-break: normal !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+    }
+    
+    /* Wrapped mode - when data-wrapped="true" */
+    .code-block[data-wrapped="true"] {
+        white-space: pre-wrap !important;
+        word-wrap: break-word !important;
+        word-break: break-all !important;
+        overflow-x: visible !important;
+        overflow-y: visible !important;
     }
     
     .code-block code {
-        background: none;
-        padding: 0;
-        color: inherit;
-        font-size: inherit;
-        border: none;
+        background: none !important;
+        padding: 0 !important;
+        color: inherit !important;
+        font-size: inherit !important;
+        border: none !important;
+        display: block !important;
+        font-family: inherit !important;
     }
     
-    /* Syntax highlighting for different languages */
-    .code-block.html,
-    .code-block.xml {
-        color: #e2e8f0;
+    /* Inherit white-space from parent pre */
+    .code-block code {
+        white-space: inherit !important;
+        word-wrap: inherit !important;
+        word-break: inherit !important;
     }
     
-    .code-block.css {
-        color: #81c784;
+    /* Ensure Prism.js syntax highlighting works */
+    .code-block .token.comment,
+    .code-block .token.prolog,
+    .code-block .token.doctype,
+    .code-block .token.cdata {
+        color: #8892b0;
     }
     
-    .code-block.javascript,
-    .code-block.js {
-        color: #ffeb3b;
+    .code-block .token.punctuation {
+        color: #f8f8f2;
     }
     
-    .code-block.python {
-        color: #4fc3f7;
+    .code-block .token.property,
+    .code-block .token.tag,
+    .code-block .token.constant,
+    .code-block .token.symbol,
+    .code-block .token.deleted {
+        color: #ff5555;
     }
     
-    .code-block.json {
-        color: #ff9800;
+    .code-block .token.boolean,
+    .code-block .token.number {
+        color: #bd93f9;
     }
     
-    /* Basic syntax highlighting patterns */
-    .code-block.html code,
-    .code-block.xml code {
-        background: linear-gradient(90deg, 
-            #2d3748 0%, 
-            #2d3748 100%
-        );
+    .code-block .token.selector,
+    .code-block .token.attr-name,
+    .code-block .token.string,
+    .code-block .token.char,
+    .code-block .token.builtin,
+    .code-block .token.inserted {
+        color: #50fa7b;
     }
     
-    /* Custom scrollbar for code blocks */
-    .code-block::-webkit-scrollbar {
+    .code-block .token.operator,
+    .code-block .token.entity,
+    .code-block .token.url,
+    .code-block .language-css .token.string,
+    .code-block .style .token.string,
+    .code-block .token.variable {
+        color: #f8f8f2;
+    }
+    
+    .code-block .token.atrule,
+    .code-block .token.attr-value,
+    .code-block .token.function,
+    .code-block .token.class-name {
+        color: #f1fa8c;
+    }
+    
+    .code-block .token.keyword {
+        color: #8be9fd;
+    }
+    
+    .code-block .token.regex,
+    .code-block .token.important {
+        color: #ffb86c;
+    }
+    
+    /* Custom scrollbar for code blocks (only in no-wrap mode) */
+    .code-block:not([data-wrapped="true"])::-webkit-scrollbar {
         height: 8px;
     }
     
-    .code-block::-webkit-scrollbar-track {
-        background: rgba(0, 0, 0, 0.1);
+    .code-block:not([data-wrapped="true"])::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.2);
         border-radius: 4px;
     }
     
-    .code-block::-webkit-scrollbar-thumb {
-        background: rgba(0, 0, 0, 0.3);
+    .code-block:not([data-wrapped="true"])::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
         border-radius: 4px;
     }
     
-    .code-block::-webkit-scrollbar-thumb:hover {
-        background: rgba(0, 0, 0, 0.5);
+    .code-block:not([data-wrapped="true"])::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
     }
     
+    /* Typing indicator styles */
     .typing-indicator .message-content {
         padding: var(--spacing-sm);
     }
@@ -657,6 +1159,7 @@ const chatCSS = `
         }
     }
     
+    /* Chat input styling */
     #chatInput {
         resize: none;
         min-height: 36px;
@@ -664,6 +1167,7 @@ const chatCSS = `
         overflow-y: auto;
     }
     
+    /* Quick actions styling */
     .chat-quick-actions {
         display: flex;
         gap: var(--spacing-xs);
@@ -708,6 +1212,111 @@ const chatCSS = `
             color: #ffd700;
             border-color: rgba(255, 255, 255, 0.2);
         }
+        
+        /* Dark theme button adjustments */
+        .code-actions button {
+            border-width: 1px;
+        }
+        
+        .apply-code-btn {
+            background: #22c55e;
+            border-color: #16a34a;
+        }
+        
+        .apply-code-btn:hover {
+            background: #16a34a;
+            border-color: #15803d;
+        }
+        
+        .insert-code-btn {
+            background: #f97316;
+            border-color: #ea580c;
+        }
+        
+        .insert-code-btn:hover {
+            background: #ea580c;
+            border-color: #c2410c;
+        }
+        
+        .toggle-wrap-btn {
+            background: #0891b2;
+            border-color: #0e7490;
+        }
+        
+        .toggle-wrap-btn:hover {
+            background: #0e7490;
+            border-color: #155e75;
+        }
+        
+        .copy-code-btn {
+            background: #64748b;
+            border-color: #475569;
+        }
+        
+        .copy-code-btn:hover {
+            background: #475569;
+            border-color: #334155;
+        }
+    }
+
+    /* History navigation indicator */
+    .chat-input-container {
+        position: relative;
+    }
+    
+    .history-indicator {
+        position: absolute;
+        top: -25px;
+        right: 8px;
+        background: var(--primary-color);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.7em;
+        font-weight: 500;
+        pointer-events: none;
+        opacity: 0;
+        transform: translateY(5px);
+        transition: all 0.2s ease;
+        z-index: 10;
+    }
+    
+    .history-indicator.show {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    
+    /* Input hint styling */
+    .chat-input-hint {
+        font-size: var(--font-size-xs);
+        color: var(--text-muted);
+        text-align: center;
+        padding: var(--spacing-xs);
+        border-top: 1px solid var(--border-color);
+        background: var(--secondary-bg);
+    }
+    
+    .chat-input-hint code {
+        background: rgba(0, 0, 0, 0.1);
+        padding: 1px 4px;
+        border-radius: 2px;
+        font-size: 0.85em;
+    }
+    
+    /* Responsive adjustments for smaller screens */
+    @media (max-width: 768px) {
+        .code-actions {
+            gap: 4px;
+        }
+        
+        .code-actions button {
+            padding: 4px 6px;
+            font-size: 0.7em;
+        }
+        
+        .code-actions button span {
+            display: none;
+        }
     }
 `;
 
@@ -726,12 +1335,26 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="quick-action-btn" onclick="chatGPT.fixCode()">Fix Code</button>
             <button class="quick-action-btn" onclick="chatGPT.optimizeCode()">Optimize</button>
             <button class="quick-action-btn" onclick="chatGPT.clearChat()">Clear Chat</button>
+            <button class="quick-action-btn" onclick="chatGPT.clearHistory()">Clear History</button>
         `;
 
         // Insert before chat input container
         const chatContainer = document.querySelector('.chat-container');
         const inputContainer = document.querySelector('.chat-input-container');
+
+        // Add history indicator
+        const historyIndicator = document.createElement('div');
+        historyIndicator.className = 'history-indicator';
+        historyIndicator.id = 'historyIndicator';
+        inputContainer.appendChild(historyIndicator);
+
+        // Add input hint
+        const inputHint = document.createElement('div');
+        inputHint.className = 'chat-input-hint';
+        inputHint.innerHTML = 'Use <code>↑</code> and <code>↓</code> arrows to navigate message history • <code>Esc</code> to clear';
+
         chatContainer.insertBefore(quickActions, inputContainer);
+        chatContainer.appendChild(inputHint);
     }
 });
 

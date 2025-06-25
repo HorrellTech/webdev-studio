@@ -899,18 +899,198 @@ Happy coding!`;
         });
     }
     
-    exportProject() {
-        const project = {
-            name: 'WebDev Studio Project',
-            created: new Date(),
-            files: this.getAllFiles(),
-            folders: this.getAllFolders()
+    async exportProjectAsZip() {
+        try {
+            // Dynamically import JSZip
+            const JSZip = await this.loadJSZip();
+            const zip = new JSZip();
+            
+            // Add all files to zip
+            this.getAllFiles().forEach(file => {
+                // Remove leading slash for zip paths
+                const zipPath = file.path.startsWith('/') ? file.path.substring(1) : file.path;
+                
+                // Handle different file types
+                if (this.isBinaryFile(file.path)) {
+                    // For binary files, convert from base64 if needed
+                    if (file.content.startsWith('data:')) {
+                        // Extract base64 data from data URL
+                        const base64Data = file.content.split(',')[1];
+                        zip.file(zipPath, base64Data, { base64: true });
+                    } else {
+                        // Assume it's already base64 encoded
+                        zip.file(zipPath, file.content, { base64: true });
+                    }
+                } else {
+                    // For text files, add as string
+                    zip.file(zipPath, file.content);
+                }
+            });
+            
+            // Generate zip file
+            const zipBlob = await zip.generateAsync({ 
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 6 }
+            });
+            
+            return zipBlob;
+        } catch (error) {
+            console.error('Failed to export project as ZIP:', error);
+            throw error;
+        }
+    }
+
+    async importProjectFromZip(zipFile) {
+        try {
+            // Dynamically import JSZip
+            const JSZip = await this.loadJSZip();
+            const zip = await JSZip.loadAsync(zipFile);
+            
+            // Clear existing files and folders
+            this.files.clear();
+            this.folders.clear();
+            
+            // Track folders to create
+            const foldersToCreate = new Set();
+            
+            // Process each file in the zip
+            const filePromises = [];
+            
+            zip.forEach((relativePath, zipEntry) => {
+                if (!zipEntry.dir) {
+                    // Add leading slash for our file system
+                    const filePath = '/' + relativePath;
+                    
+                    // Track parent folders
+                    const parentPath = this.getDirectoryPath(filePath);
+                    if (parentPath !== '/') {
+                        const pathParts = parentPath.split('/').filter(part => part);
+                        let currentPath = '';
+                        pathParts.forEach(part => {
+                            currentPath += '/' + part;
+                            foldersToCreate.add(currentPath);
+                        });
+                    }
+                    
+                    // Process file based on type
+                    if (this.isBinaryFile(filePath)) {
+                        // Handle binary files
+                        filePromises.push(
+                            zipEntry.async('base64').then(content => {
+                                // Create data URL for binary files
+                                const mimeType = this.getMimeType(filePath);
+                                const dataUrl = `data:${mimeType};base64,${content}`;
+                                this.createFile(filePath, dataUrl);
+                            })
+                        );
+                    } else {
+                        // Handle text files
+                        filePromises.push(
+                            zipEntry.async('string').then(content => {
+                                this.createFile(filePath, content);
+                            })
+                        );
+                    }
+                }
+            });
+            
+            // Create folders first
+            foldersToCreate.forEach(folderPath => {
+                this.createFolder(folderPath);
+            });
+            
+            // Wait for all files to be processed
+            await Promise.all(filePromises);
+            
+            this.notifyWatchers('project-imported', { type: 'zip', fileCount: filePromises.length });
+            return true;
+        } catch (error) {
+            console.error('Failed to import project from ZIP:', error);
+            return false;
+        }
+    }
+
+    async loadJSZip() {
+        // Check if JSZip is already loaded
+        if (window.JSZip) {
+            return window.JSZip;
+        }
+        
+        // Dynamically load JSZip
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+            script.onload = () => {
+                if (window.JSZip) {
+                    resolve(window.JSZip);
+                } else {
+                    reject(new Error('Failed to load JSZip'));
+                }
+            };
+            script.onerror = () => reject(new Error('Failed to load JSZip'));
+            document.head.appendChild(script);
+        });
+    }
+
+    isBinaryFile(filePath) {
+        const binaryExtensions = [
+            '.jpg', '.jpeg', '.png', '.gif', '.bmp', '.svg', '.ico', '.webp',
+            '.mp3', '.mp4', '.wav', '.ogg', '.webm', '.avi', '.mov',
+            '.pdf', '.zip', '.rar', '.tar', '.gz', '.7z',
+            '.exe', '.dll', '.so', '.dylib',
+            '.ttf', '.otf', '.woff', '.woff2', '.eot',
+            '.psd', '.ai', '.sketch', '.fig'
+        ];
+        
+        const extension = this.getFileExtension(filePath).toLowerCase();
+        return binaryExtensions.includes('.' + extension);
+    }
+
+    getMimeType(filePath) {
+        const extension = this.getFileExtension(filePath).toLowerCase();
+        const mimeTypes = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'bmp': 'image/bmp',
+            'svg': 'image/svg+xml',
+            'ico': 'image/x-icon',
+            'webp': 'image/webp',
+            'mp3': 'audio/mpeg',
+            'mp4': 'video/mp4',
+            'wav': 'audio/wav',
+            'ogg': 'audio/ogg',
+            'webm': 'video/webm',
+            'pdf': 'application/pdf',
+            'zip': 'application/zip',
+            'ttf': 'font/ttf',
+            'otf': 'font/otf',
+            'woff': 'font/woff',
+            'woff2': 'font/woff2'
         };
         
-        return JSON.stringify(project, null, 2);
+        return mimeTypes[extension] || 'application/octet-stream';
     }
-    
-    importProject(projectData) {
+
+    // Update existing exportProject method to use ZIP by default
+    exportProject() {
+        return this.exportProjectAsZip();
+    }
+
+    // Update existing importProject method to handle both ZIP and JSON
+    async importProject(data) {
+        if (data instanceof File || data instanceof Blob) {
+            // It's a ZIP file
+            return await this.importProjectFromZip(data);
+        } else {
+            // It's JSON string (legacy format)
+            return this.importProjectFromJSON(data);
+        }
+    }
+
+    importProjectFromJSON(projectData) {
         try {
             const project = JSON.parse(projectData);
             
@@ -935,7 +1115,7 @@ Happy coding!`;
             this.notifyWatchers('project-imported', project);
             return true;
         } catch (error) {
-            console.error('Failed to import project:', error);
+            console.error('Failed to import project from JSON:', error);
             return false;
         }
     }

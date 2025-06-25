@@ -440,7 +440,8 @@ class FileExplorer {
         
         this.renderFileTree();
     }
-      deleteItem(path) {
+      
+    deleteItem(path) {
         const isFile = window.fileSystem.readFile(path) !== undefined;
         const itemName = path.split('/').pop();
         
@@ -470,7 +471,8 @@ class FileExplorer {
         
         this.renderFileTree();
     }
-      duplicateFile(path) {
+      
+    duplicateFile(path) {
         const file = window.fileSystem.readFile(path);
         if (!file) return;
         
@@ -546,6 +548,76 @@ class FileExplorer {
         if (this.selectedItem) {
             const isFile = fileSystem.readFile(this.selectedItem) !== undefined;
             this.renameItem(this.selectedItem, isFile ? 'file' : 'folder');
+        }
+    }
+
+    uploadFiles() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.accept = '*/*'; // Accept all file types
+        
+        input.onchange = async (e) => {
+            const files = Array.from(e.target.files);
+            const uploadPromises = files.map(file => this.uploadSingleFile(file));
+            
+            try {
+                await Promise.all(uploadPromises);
+                this.renderFileTree();
+                this.showNotification(`Successfully uploaded ${files.length} file(s)`, 'success');
+            } catch (error) {
+                console.error('Upload failed:', error);
+                this.showNotification('Some files failed to upload', 'error');
+            }
+        };
+        
+        input.click();
+    }
+
+    async uploadSingleFile(file) {
+        return new Promise((resolve, reject) => {
+            let filePath = `/${file.name}`;
+            
+            // Handle duplicate names
+            let counter = 1;
+            while (window.fileSystem.readFile(filePath)) {
+                const nameWithoutExt = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                const extension = file.name.substring(file.name.lastIndexOf('.')) || '';
+                filePath = `/${nameWithoutExt}_${counter}${extension}`;
+                counter++;
+            }
+            
+            // Check if it's a binary file
+            if (window.fileSystem.isBinaryFile(filePath)) {
+                // Read as data URL for binary files
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const content = event.target.result; // This is a data URL
+                    window.fileSystem.createFile(filePath, content);
+                    resolve();
+                };
+                reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+                reader.readAsDataURL(file);
+            } else {
+                // Read as text for text files
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const content = event.target.result;
+                    window.fileSystem.createFile(filePath, content);
+                    resolve();
+                };
+                reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+                reader.readAsText(file);
+            }
+        });
+    }
+
+    showNotification(message, type = 'info') {
+        // Use the existing notification system from the main app
+        if (window.webDevStudio && window.webDevStudio.showNotification) {
+            window.webDevStudio.showNotification(message, type);
+        } else {
+            console.log(`${type.toUpperCase()}: ${message}`);
         }
     }
 }

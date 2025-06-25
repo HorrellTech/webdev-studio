@@ -684,20 +684,20 @@ class WebDevStudio {
         this.showNotification(`File saved as ${newName}`, 'success');
     }
     
-    exportProject() {
+    async exportProject() {
         try {
-            const projectData = fileSystem.exportProject();
-            const blob = new Blob([projectData], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
+            const zipBlob = await fileSystem.exportProject();
             
+            // Create download link
+            const url = URL.createObjectURL(zipBlob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `webdev-project-${new Date().toISOString().split('T')[0]}.json`;
+            a.download = `webdev-project-${new Date().toISOString().split('T')[0]}.zip`;
             a.click();
             
             URL.revokeObjectURL(url);
-            this.showNotification('Project exported successfully', 'success');
-              } catch (error) {
+            this.showNotification('Project exported as ZIP file', 'success');
+        } catch (error) {
             console.error('Export failed:', error);
             this.showNotification('Failed to export project', 'error');
         }
@@ -706,36 +706,63 @@ class WebDevStudio {
     importProject() {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.json';
+        input.accept = '.zip,.json';
         
-        input.onchange = (e) => {
+        input.onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
             
-            const reader = new FileReader();
-            reader.onload = (event) => {
-                try {
-                    const projectData = event.target.result;
-                    const success = window.fileSystem.importProject(projectData);
-                    
-                    if (success) {
-                        // Close all open tabs
-                        if (window.codeEditor) {
-                            Array.from(window.codeEditor.tabs.keys()).forEach(path => {
-                                window.codeEditor.closeTab(path);
-                            });
+            try {
+                let success = false;
+                
+                if (file.name.endsWith('.zip')) {
+                    // Import ZIP file
+                    success = await window.fileSystem.importProject(file);
+                } else if (file.name.endsWith('.json')) {
+                    // Import JSON file (legacy)
+                    const reader = new FileReader();
+                    reader.onload = async (event) => {
+                        try {
+                            const projectData = event.target.result;
+                            success = await window.fileSystem.importProject(projectData);
+                            
+                            if (success) {
+                                // Close all open tabs
+                                if (window.codeEditor) {
+                                    Array.from(window.codeEditor.tabs.keys()).forEach(path => {
+                                        window.codeEditor.closeTab(path);
+                                    });
+                                }
+                                
+                                this.showNotification('Project imported successfully', 'success');
+                            } else {
+                                throw new Error('Invalid project file format');
+                            }
+                        } catch (error) {
+                            console.error('Import failed:', error);
+                            this.showNotification('Failed to import project: ' + error.message, 'error');
                         }
-                        
-                        this.showNotification('Project imported successfully', 'success');
-                    } else {
-                        throw new Error('Invalid project file format');
-                    }
-                } catch (error) {
-                    console.error('Import failed:', error);
-                    this.showNotification('Failed to import project: ' + error.message, 'error');
+                    };
+                    reader.readAsText(file);
+                    return;
                 }
-            };
-            reader.readAsText(file);
+                
+                if (success) {
+                    // Close all open tabs
+                    if (window.codeEditor) {
+                        Array.from(window.codeEditor.tabs.keys()).forEach(path => {
+                            window.codeEditor.closeTab(path);
+                        });
+                    }
+                    
+                    this.showNotification('Project imported successfully', 'success');
+                } else {
+                    throw new Error('Failed to import project');
+                }
+            } catch (error) {
+                console.error('Import failed:', error);
+                this.showNotification('Failed to import project: ' + error.message, 'error');
+            }
         };
         
         input.click();

@@ -104,20 +104,16 @@ class PreviewManager {
     }
     
     closePreview() {
-        this.isPreviewOpen = false;
-        document.getElementById('previewModal').classList.remove('show');
+        // Clear any pending refresh when closing preview
+        if (this.refreshTimeout) {
+            clearTimeout(this.refreshTimeout);
+            this.refreshTimeout = null;
+        }
+
+        const modal = document.getElementById('previewModal');
+        modal.classList.remove('show');
         document.body.style.overflow = '';
-        
-        // Clear the iframe
-        if (this.previewFrame) {
-            this.previewFrame.src = 'about:blank';
-        }
-        
-        // Clear refresh timer
-        if (this.refreshTimer) {
-            clearTimeout(this.refreshTimer);
-            this.refreshTimer = null;
-        }
+        this.currentFile = null;
     }
     
     findPreviewableFile() {
@@ -396,29 +392,30 @@ class PreviewManager {
     }
     
     refreshPreview() {
-        if (this.isPreviewOpen) {
-            const htmlFile = this.findPreviewableFile();
-            if (htmlFile) {
-                // Save current file content to virtual file system
-                if (window.codeEditor && window.codeEditor.currentFile) {
-                    const content = window.codeEditor.getValue();
-                    fileSystem.writeFile(window.codeEditor.currentFile.path, content);
-                    window.codeEditor.currentFile.content = content;
-                }
-                
-                this.loadPreview(htmlFile);
-            }
+        // Clear any existing refresh timeout first
+        if (this.refreshTimeout) {
+            clearTimeout(this.refreshTimeout);
+            this.refreshTimeout = null;
+        }
+
+        if (this.currentFile) {
+            this.loadPreview(this.currentFile);
         }
     }
     
     scheduleRefresh() {
-        if (this.refreshTimer) {
-            clearTimeout(this.refreshTimer);
+        // Clear any existing timeout before setting a new one
+        if (this.refreshTimeout) {
+            clearTimeout(this.refreshTimeout);
+            this.refreshTimeout = null;
         }
-        
-        this.refreshTimer = setTimeout(() => {
-            this.refreshPreview();
-        }, this.refreshDelay);
+
+        if (this.autoRefresh && this.currentFile) {
+            this.refreshTimeout = setTimeout(() => {
+                this.refreshPreview();
+                this.refreshTimeout = null; // Clear the reference after execution
+            }, 1000);
+        }
     }
     
     openInNewTab() {
