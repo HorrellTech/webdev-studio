@@ -265,6 +265,9 @@ class SettingsManager {
             
             window.chatGPT.updateSettings(aiSettings);
         }
+        
+        // Update the model dropdown with all available models
+        this.updateModelDropdown();
     }
     
     applyDriveSettings() {

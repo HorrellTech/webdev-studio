@@ -1154,4 +1154,17 @@ if (window.settingsManager?.getSetting('general', 'autoSave', true)) {
     }, 30000); // Auto-save every 30 seconds
 }
 
+// Create global ChatGPT assistant instance after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    // Create ChatGPT instance
+    window.chatGPT = new ChatGPTAssistant();
+    
+    // Ensure settings manager can update dropdown after ChatGPT is ready
+    setTimeout(() => {
+        if (window.settingsManager && window.settingsManager.updateModelDropdown) {
+            window.settingsManager.updateModelDropdown();
+        }
+    }, 1000);
+});
+
 console.log('WebDev Studio main script loaded');

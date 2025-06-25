@@ -33,6 +33,11 @@ class CodeEditor {
             matchBrackets: true,
             showCursorWhenSelecting: true,
             styleActiveLine: true,
+            // Add mobile-specific options
+            inputStyle: 'contenteditable',
+            spellcheck: false,
+            autocorrect: false,
+            autocapitalize: false,
             extraKeys: {
                 'Ctrl-S': () => this.saveCurrentFile(),
                 'Ctrl-F': 'findPersistent',
@@ -44,12 +49,30 @@ class CodeEditor {
                 'Tab': 'indentMore',
                 'Shift-Tab': 'indentLess',
                 'F11': () => this.toggleFullscreen(),
-                'Esc': () => this.exitFullscreen()
+                'Esc': () => this.exitFullscreen(),
+                // Add mobile backspace handling
+                'Backspace': (cm) => {
+                    if (cm.somethingSelected()) {
+                        cm.replaceSelection('');
+                    } else {
+                        const cursor = cm.getCursor();
+                        const line = cm.getLine(cursor.line);
+                        if (cursor.ch > 0) {
+                            cm.replaceRange('', {line: cursor.line, ch: cursor.ch - 1}, cursor);
+                        } else if (cursor.line > 0) {
+                            const prevLine = cm.getLine(cursor.line - 1);
+                            cm.replaceRange('', {line: cursor.line - 1, ch: prevLine.length}, {line: cursor.line, ch: 0});
+                        }
+                    }
+                }
             }
         });
         
         // Set up event listeners
         this.setupEventListeners();
+    
+        // Add mobile optimizations
+        this.setupMobileOptimizations();
         
         // Apply font size
         this.updateFontSize();
@@ -58,6 +81,38 @@ class CodeEditor {
         fileSystem.watch((event, data) => {
             this.handleFileSystemEvent(event, data);
         });
+    }
+
+    setupMobileOptimizations() {
+        // Detect if on mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        
+        if (isMobile && this.editor) {
+            // Disable problematic mobile features
+            const input = this.editor.getInputField();
+            if (input) {
+                input.setAttribute('autocomplete', 'off');
+                input.setAttribute('autocorrect', 'off');
+                input.setAttribute('autocapitalize', 'off');
+                input.setAttribute('spellcheck', 'false');
+            }
+            
+            // Add mobile-specific event handlers
+            this.editor.on('beforeChange', (cm, change) => {
+                // Prevent certain changes that cause issues on mobile
+                if (change.origin === '+input' && change.text.length === 1 && change.text[0] === '') {
+                    // This is likely a mobile backspace issue
+                    return;
+                }
+            });
+            
+            // Refresh editor on orientation change
+            window.addEventListener('orientationchange', () => {
+                setTimeout(() => {
+                    this.editor.refresh();
+                }, 100);
+            });
+        }
     }
     
     setupEventListeners() {
@@ -570,6 +625,29 @@ const notificationCSS = `
     
     .notification-close:hover {
         background: rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Mobile CodeMirror fixes */
+    @media (max-width: 768px) {
+        .CodeMirror {
+            -webkit-text-size-adjust: 100%;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .CodeMirror-scroll {
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .CodeMirror textarea {
+            -webkit-appearance: none;
+            border: none;
+            outline: none;
+            resize: none;
+        }
+        
+        .CodeMirror-focused .CodeMirror-selected {
+            background: #3390ff;
+        }
     }
     
     .editor-fullscreen .app > *:not(.main-container) {
