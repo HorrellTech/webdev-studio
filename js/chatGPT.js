@@ -72,6 +72,8 @@ class ChatGPTAssistant {
         } else {
             this.addSystemMessage('Hello! I\'m your AI assistant. How can I help you with your code today?');
         }
+
+        this.clearChat()
     }
 
     setupEventListeners() {

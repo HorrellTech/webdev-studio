@@ -130,7 +130,7 @@
             <!-- Right Panel - ChatGPT -->
             <div class="panel right-panel" id="rightPanel">
                 <div class="panel-header">
-                    <span class="panel-title">AI Assistant</span>
+                    <span class="panel-title">APRIL Assistant(chat-GPT)</span>
                     <button class="btn-icon panel-collapse" data-panel="right">
                         <i class="fas fa-chevron-right"></i>
                     </button>
@@ -285,10 +285,52 @@
                         <div class="setting-group">
                             <label>Model</label>
                             <select id="aiModel">
-                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-                                <option value="gpt-4">GPT-4</option>
-                                <option value="gpt-4-turbo">GPT-4 Turbo</option>
+                                <!-- GPT-3.5 Models -->
+                                <optgroup label="GPT-3.5 (Cost Effective)">
+                                    <option value="gpt-3.5-turbo">GPT-3.5 Turbo - Fast and cost-effective</option>
+                                    <option value="gpt-3.5-turbo-16k">GPT-3.5 Turbo 16K - Longer context window</option>
+                                    <option value="gpt-3.5-turbo-1106">GPT-3.5 Turbo 1106 - Improved instruction following</option>
+                                    <option value="gpt-3.5-turbo-0125">GPT-3.5 Turbo 0125 - Latest with reduced costs</option>
+                                </optgroup>
+                                
+                                <!-- GPT-4 Models -->
+                                <optgroup label="GPT-4 (Most Capable)">
+                                    <option value="gpt-4">GPT-4 - Most capable for complex reasoning</option>
+                                    <option value="gpt-4-32k">GPT-4 32K - Extended context (32K tokens)</option>
+                                    <option value="gpt-4-turbo">GPT-4 Turbo - Faster with 128K context</option>
+                                    <option value="gpt-4-turbo-preview">GPT-4 Turbo Preview - Latest preview</option>
+                                    <option value="gpt-4-1106-preview">GPT-4 Turbo 1106 - JSON mode & function calling</option>
+                                    <option value="gpt-4-0125-preview">GPT-4 Turbo 0125 - Latest with improvements</option>
+                                </optgroup>
+                                
+                                <!-- GPT-4o Models (Recommended) -->
+                                <optgroup label="GPT-4o (Recommended - Best Balance)">
+                                    <option value="gpt-4o">GPT-4o - Multimodal with vision & audio</option>
+                                    <option value="gpt-4o-mini" selected>GPT-4o Mini - Great balance of cost & performance ⭐</option>
+                                    <option value="gpt-4o-2024-05-13">GPT-4o (May 2024) - Specific version</option>
+                                    <option value="gpt-4o-2024-08-06">GPT-4o (Aug 2024) - Latest improvements</option>
+                                </optgroup>
+                                
+                                <!-- Specialized Models -->
+                                <optgroup label="Specialized Models">
+                                    <option value="gpt-4-vision-preview">GPT-4 Vision - Image understanding</option>
+                                    <option value="gpt-4-code-interpreter">GPT-4 Code Interpreter - Code optimized</option>
+                                    <option value="code-davinci-002">Code Davinci 002 - Code generation specialist</option>
+                                </optgroup>
+                                
+                                <!-- Legacy Models -->
+                                <optgroup label="Legacy Models">
+                                    <option value="text-davinci-003">Text Davinci 003 - Legacy but powerful</option>
+                                    <option value="gpt-4.1">GPT-4.1 - Latest version</option>
+                                </optgroup>
                             </select>
+                            <small>
+                                <strong>💡 Recommendations:</strong><br>
+                                • <strong>GPT-4o Mini</strong> - Best overall choice for coding<br>
+                                • <strong>GPT-3.5 Turbo</strong> - Most affordable for simple tasks<br>
+                                • <strong>GPT-4 Turbo</strong> - Best for complex debugging<br>
+                                • <strong>GPT-4o</strong> - For projects with images/screenshots
+                            </small>
                         </div>
                         <div class="setting-group">
                             <label>Max Tokens</label>
