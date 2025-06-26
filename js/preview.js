@@ -8,6 +8,7 @@ class PreviewManager {
         this.autoRefresh = true;
         this.refreshDelay = 1000; // 1 second delay for auto-refresh
         this.refreshTimer = null;
+        this.currentFile = null;
         
         this.initialize();
     }
@@ -48,10 +49,13 @@ class PreviewManager {
             this.closePreview();
         });
         
-        // Refresh preview button
-        document.getElementById('refreshPreview').addEventListener('click', () => {
-            this.refreshPreview();
-        });
+        // Refresh preview button - check both possible IDs
+        const refreshBtn = document.getElementById('refreshPreview') || document.getElementById('previewRefreshBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.refreshPreview();
+            });
+        }
         
         // Open in new tab button
         document.getElementById('openInNewTab').addEventListener('click', () => {
@@ -110,10 +114,11 @@ class PreviewManager {
             this.refreshTimeout = null;
         }
 
+        this.isPreviewOpen = false; // Add this line
         const modal = document.getElementById('previewModal');
         modal.classList.remove('show');
         document.body.style.overflow = '';
-        this.currentFile = null;
+        // Don't clear currentFile here - keep it for potential refresh
     }
     
     findPreviewableFile() {
@@ -149,6 +154,9 @@ class PreviewManager {
     
     loadPreview(htmlFile) {
         if (!htmlFile) return;
+        
+        // Store the current file for refresh functionality
+        this.currentFile = htmlFile;
         
         try {
             // Get the HTML content
@@ -398,8 +406,22 @@ class PreviewManager {
             this.refreshTimeout = null;
         }
 
+        // If no current file, try to find one
+        if (!this.currentFile) {
+            this.currentFile = this.findPreviewableFile();
+        }
+
         if (this.currentFile) {
+            // Re-read the file to get latest content
+            const updatedFile = fileSystem.readFile(this.currentFile.path);
+            if (updatedFile) {
+                this.currentFile = updatedFile;
+            }
+            
             this.loadPreview(this.currentFile);
+            this.showNotification('Preview refreshed', 'success');
+        } else {
+            this.showNotification('No file to refresh', 'warning');
         }
     }
     

@@ -13,6 +13,9 @@ class ChatGPTAssistant {
         this.historyIndex = -1;
         this.currentDraft = '';
 
+        // Add file references tracking
+        this.referencedFiles = new Set();
+
         // Add available models list
         this.availableModels = [
             // GPT-3.5 Models
@@ -20,7 +23,7 @@ class ChatGPTAssistant {
             { id: 'gpt-3.5-turbo-16k', name: 'GPT-3.5 Turbo 16K', description: 'Longer context window (16K tokens)' },
             { id: 'gpt-3.5-turbo-1106', name: 'GPT-3.5 Turbo 1106', description: 'Updated GPT-3.5 with improved instruction following' },
             { id: 'gpt-3.5-turbo-0125', name: 'GPT-3.5 Turbo 0125', description: 'Latest GPT-3.5 with reduced costs' },
-            
+
             // GPT-4 Models
             { id: 'gpt-4', name: 'GPT-4', description: 'Most capable model for complex reasoning' },
             { id: 'gpt-4-32k', name: 'GPT-4 32K', description: 'GPT-4 with extended context (32K tokens)' },
@@ -28,17 +31,17 @@ class ChatGPTAssistant {
             { id: 'gpt-4-turbo-preview', name: 'GPT-4 Turbo Preview', description: 'Preview of latest GPT-4 Turbo' },
             { id: 'gpt-4-1106-preview', name: 'GPT-4 Turbo 1106', description: 'GPT-4 Turbo with JSON mode and function calling' },
             { id: 'gpt-4-0125-preview', name: 'GPT-4 Turbo 0125', description: 'Latest GPT-4 Turbo with improved performance' },
-            
+
             // GPT-4o Models (Omni)
             { id: 'gpt-4o', name: 'GPT-4o', description: 'Multimodal model with vision and audio capabilities' },
             { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Smaller, faster GPT-4o - great balance of cost and performance' },
             { id: 'gpt-4o-2024-05-13', name: 'GPT-4o (May 2024)', description: 'Specific GPT-4o version from May 2024' },
             { id: 'gpt-4o-2024-08-06', name: 'GPT-4o (Aug 2024)', description: 'Latest GPT-4o version with improvements' },
-            
+
             // Experimental/Specialized Models
             { id: 'gpt-4-vision-preview', name: 'GPT-4 Vision', description: 'GPT-4 with image understanding capabilities' },
             { id: 'gpt-4-code-interpreter', name: 'GPT-4 Code Interpreter', description: 'GPT-4 optimized for code analysis and generation' },
-            
+
             // Legacy but still useful models
             { id: 'text-davinci-003', name: 'Text Davinci 003', description: 'Legacy but powerful text completion model' },
             { id: 'code-davinci-002', name: 'Code Davinci 002', description: 'Specialized for code understanding and generation' },
@@ -58,6 +61,9 @@ class ChatGPTAssistant {
         // Update UI based on API key availability
         this.updateUI();
         
+        // Update file references UI
+        this.updateFileReferencesUI();
+        
         // Update settings dropdown with available models
         if (window.settingsManager) {
             window.settingsManager.updateModelDropdown();
@@ -73,7 +79,7 @@ class ChatGPTAssistant {
             this.addSystemMessage('Hello! I\'m your AI assistant. How can I help you with your code today?');
         }
 
-        this.clearChat()
+        this.clearChat();
     }
 
     setupEventListeners() {
@@ -195,6 +201,11 @@ class ChatGPTAssistant {
         if (this.messageHistory.length > 50) {
             this.messageHistory = this.messageHistory.slice(-50);
         }
+
+        // Load file references
+        if (settings.referencedFiles) {
+            this.referencedFiles = new Set(settings.referencedFiles);
+        }
     }
 
     saveSettings() {
@@ -202,7 +213,8 @@ class ChatGPTAssistant {
             apiKey: this.apiKey,
             model: this.model,
             maxTokens: this.maxTokens,
-            messageHistory: this.messageHistory
+            messageHistory: this.messageHistory,
+            referencedFiles: Array.from(this.referencedFiles)
         };
         localStorage.setItem('webdev-studio-ai-settings', JSON.stringify(settings));
     }
@@ -254,7 +266,7 @@ class ChatGPTAssistant {
     // New method to update model information display
     updateModelInfo() {
         let modelInfoElement = document.getElementById('current-model-info');
-        
+
         if (!modelInfoElement) {
             // Create model info element if it doesn't exist
             const chatContainer = document.querySelector('.chat-container');
@@ -270,7 +282,7 @@ class ChatGPTAssistant {
             const modelData = this.availableModels.find(m => m.id === this.model);
             const modelName = modelData ? modelData.name : this.model;
             const isConfigured = this.apiKey && this.apiKey.length > 0;
-            
+
             modelInfoElement.innerHTML = `
                 <div class="model-status ${isConfigured ? 'configured' : 'not-configured'}">
                     <div class="model-info">
@@ -278,10 +290,10 @@ class ChatGPTAssistant {
                         <span class="model-status-text">${isConfigured ? 'Ready' : 'Not Configured'}</span>
                     </div>
                     <div class="model-actions">
-                        ${!isConfigured ? 
-                            '<button class="setup-btn" onclick="chatGPT.showSetupInstructions()">Setup Guide</button>' : 
-                            '<button class="settings-btn" onclick="chatGPT.openSettings()">⚙️</button>'
-                        }
+                        ${!isConfigured ?
+                    '<button class="setup-btn" onclick="chatGPT.showSetupInstructions()">Setup Guide</button>' :
+                    '<button class="settings-btn" onclick="chatGPT.openSettings()">⚙️</button>'
+                }
                     </div>
                 </div>
             `;
@@ -290,13 +302,21 @@ class ChatGPTAssistant {
 
     async sendMessage() {
         const chatInput = document.getElementById('chatInput');
-        const message = chatInput.value.trim();
+        let message = chatInput.value.trim();
 
         if (!message || !this.apiKey || this.isTyping) return;
 
-        // Add message to history (avoid duplicates)
-        if (this.messageHistory.length === 0 || this.messageHistory[this.messageHistory.length - 1] !== message) {
-            this.messageHistory.push(message);
+        // Get context (selected text or current file)
+        const context = this.getAutoContext();
+
+        // If we have context, enhance the message
+        if (context) {
+            message = this.enhanceMessageWithContext(message, context);
+        }
+
+        // Add message to history (use original message without context for history)
+        if (this.messageHistory.length === 0 || this.messageHistory[this.messageHistory.length - 1] !== chatInput.value.trim()) {
+            this.messageHistory.push(chatInput.value.trim());
 
             // Limit history to 50 messages
             if (this.messageHistory.length > 50) {
@@ -311,7 +331,7 @@ class ChatGPTAssistant {
         this.historyIndex = -1;
         this.currentDraft = '';
 
-        // Add user message to chat
+        // Add user message to chat (show enhanced message)
         this.addUserMessage(message);
         chatInput.value = '';
         this.autoResizeInput(chatInput);
@@ -347,7 +367,7 @@ class ChatGPTAssistant {
 
         } catch (error) {
             console.error('Chat error:', error);
-            
+
             if (error.name === 'AbortError' || error.message.includes('aborted')) {
                 this.addSystemMessage('Request canceled by user.');
             } else {
@@ -359,11 +379,121 @@ class ChatGPTAssistant {
         }
     }
 
+    getAutoContext() {
+        const context = {
+            selectedText: null,
+            currentFile: null,
+            referencedFiles: this.getReferencedFiles()
+        };
+
+        // Get selected text if available
+        if (window.codeEditor && window.codeEditor.editor) {
+            const selection = window.codeEditor.editor.getSelection();
+            if (selection && selection.trim()) {
+                context.selectedText = {
+                    content: selection,
+                    file: window.codeEditor.currentFile,
+                    lineStart: window.codeEditor.editor.getCursor('start').line + 1,
+                    lineEnd: window.codeEditor.editor.getCursor('end').line + 1
+                };
+            }
+        }
+
+        // Get current file if no selection
+        if (!context.selectedText && window.codeEditor && window.codeEditor.currentFile) {
+            const content = window.codeEditor.getValue();
+            if (content && content.trim()) {
+                context.currentFile = {
+                    path: window.codeEditor.currentFile.path,
+                    content: content,
+                    language: this.getFileLanguage(window.codeEditor.currentFile.path)
+                };
+            }
+        }
+
+        return context;
+    }
+
+    enhanceMessageWithContext(message, context) {
+        let enhancedMessage = message;
+        const contextParts = [];
+
+        // Add selected text context
+        if (context.selectedText) {
+            const { content, file, lineStart, lineEnd } = context.selectedText;
+            const language = this.getFileLanguage(file.path);
+
+            contextParts.push(`**Selected code from ${file.path} (lines ${lineStart}-${lineEnd}):**\n\`\`\`${language}\n${content}\n\`\`\``);
+        }
+        // Add current file context if no selection
+        else if (context.currentFile) {
+            const { path, content, language } = context.currentFile;
+            const truncatedContent = content.length > 2000 ?
+                content.substring(0, 2000) + '\n\n... (file truncated)' :
+                content;
+
+            contextParts.push(`**Current file: ${path}**\n\`\`\`${language}\n${truncatedContent}\n\`\`\``);
+        }
+
+        // Add referenced files
+        if (context.referencedFiles && context.referencedFiles.length > 0) {
+            context.referencedFiles.forEach(ref => {
+                const truncatedContent = ref.content.length > 1000 ?
+                    ref.content.substring(0, 1000) + '\n\n... (file truncated)' :
+                    ref.content;
+
+                contextParts.push(`**Referenced file: ${ref.path}**\n\`\`\`${ref.language}\n${truncatedContent}\n\`\`\``);
+            });
+        }
+
+        // Combine message with context
+        if (contextParts.length > 0) {
+            enhancedMessage = `${message}\n\n---\n\n${contextParts.join('\n\n')}`;
+        }
+
+        return enhancedMessage;
+    }
+
+    getFileLanguage(filePath) {
+        const extension = filePath.split('.').pop()?.toLowerCase();
+        const languageMap = {
+            'js': 'javascript',
+            'jsx': 'javascript',
+            'ts': 'typescript',
+            'tsx': 'typescript',
+            'html': 'html',
+            'htm': 'html',
+            'css': 'css',
+            'scss': 'scss',
+            'sass': 'sass',
+            'less': 'less',
+            'json': 'json',
+            'xml': 'xml',
+            'md': 'markdown',
+            'py': 'python',
+            'php': 'php',
+            'rb': 'ruby',
+            'go': 'go',
+            'rs': 'rust',
+            'java': 'java',
+            'c': 'c',
+            'cpp': 'cpp',
+            'cs': 'csharp',
+            'sh': 'bash',
+            'ps1': 'powershell',
+            'sql': 'sql',
+            'yml': 'yaml',
+            'yaml': 'yaml'
+        };
+
+        return languageMap[extension] || 'text';
+    }
+
     async callOpenAI(messages, signal = null) {
         // Add debug logging
         console.log('🤖 Using model:', this.model);
         console.log('🔑 API Key (first 10 chars):', this.apiKey?.substring(0, 10) + '...');
-    
+
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -401,12 +531,12 @@ class ChatGPTAssistant {
     generateSystemPrompt(userMessage) {
         const context = this.getCurrentContext();
         let systemPrompt = `You are an AI assistant helping with web development in WebDev Studio.`;
-        
+
         // Add context if available
         if (context) {
             systemPrompt += ` Current context: ${context}`;
         }
-        
+
         // Detect the type of query and adjust prompt accordingly
         if (this.isCodeExplanationQuery(userMessage)) {
             systemPrompt += `\n\nThe user is asking for code explanation. Please provide clear, detailed explanations with examples where helpful.`;
@@ -417,7 +547,7 @@ class ChatGPTAssistant {
         } else if (this.isOptimizationQuery(userMessage)) {
             systemPrompt += `\n\nThe user wants code optimization suggestions. Please provide improved code with performance explanations.`;
         }
-        
+
         return systemPrompt;
     }
 
@@ -450,39 +580,22 @@ class ChatGPTAssistant {
         return context.join('\n');
     }
 
-    optimizeCode() {
-        if (window.codeEditor && window.codeEditor.currentFile) {
-            const code = window.codeEditor.getValue();
-
-            if (code && code.trim()) {
-                const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
-                const message = `Can you suggest optimizations for this ${fileExtension} code?\n\n\`\`\`${fileExtension}\n${code}\n\`\`\``;
-                document.getElementById('chatInput').value = message;
-                this.sendMessage();
-            } else {
-                this.addSystemMessage('⚠️ No code found to optimize. Please add some code to your file first.');
-            }
-        } else {
-            this.addSystemMessage('⚠️ Please open a file first to optimize code.');
-        }
-    }
-
     // Enhanced code generation with context awareness
     generateCode(prompt) {
         let contextualPrompt = prompt;
-        
+
         // Add context if a file is open
         if (window.codeEditor && window.codeEditor.currentFile) {
             const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
             const currentCode = window.codeEditor.getValue();
-            
+
             contextualPrompt = `Generate ${fileExtension} code for: ${prompt}`;
-            
+
             if (currentCode && currentCode.trim()) {
                 contextualPrompt += `\n\nCurrent file context:\n\`\`\`${fileExtension}\n${currentCode}\n\`\`\``;
             }
         }
-        
+
         document.getElementById('chatInput').value = contextualPrompt;
         this.sendMessage();
     }
@@ -491,10 +604,10 @@ class ChatGPTAssistant {
     containsCode(message) {
         // Check for code blocks
         if (/```[\s\S]*?```/.test(message)) return true;
-        
+
         // Check for inline code
         if (/`[^`]+`/.test(message)) return true;
-        
+
         // Check for common code patterns
         const codePatterns = [
             /function\s+\w+\s*\(/,
@@ -507,7 +620,7 @@ class ChatGPTAssistant {
             /\{\s*[\w\s:,]+\s*\}/,
             /\(\s*\)\s*=>/
         ];
-        
+
         return codePatterns.some(pattern => pattern.test(message));
     }
 
@@ -583,7 +696,7 @@ class ChatGPTAssistant {
                 <button class="setup-action-btn" onclick="chatGPT.openSettings()">Open Settings</button>
             </div>
         `;
-        
+
         // Use HTML rendering for system messages
         this.renderMessage('system', instructionsHTML);
     }
@@ -600,7 +713,7 @@ class ChatGPTAssistant {
             cost_effective: 'gpt-3.5-turbo',
             specialized_code: 'code-davinci-002'
         };
-        
+
         return recommendations[task] || recommendations.general;
     }
 
@@ -662,7 +775,7 @@ class ChatGPTAssistant {
                 </div>
             </div>
         `;
-        
+
         // Use HTML rendering for system messages
         this.renderMessage('system', comparisonHTML);
     }
@@ -914,22 +1027,22 @@ class ChatGPTAssistant {
         try {
             // Get current cursor position
             const cursor = window.codeEditor.editor.getCursor();
-            
+
             // Insert code at cursor position
             window.codeEditor.editor.replaceRange(codeText, cursor);
-            
+
             // Mark the file as modified
             window.codeEditor.markTabAsModified(window.codeEditor.currentFile.path);
-            
+
             // Update status bar
             window.codeEditor.updateStatusBar();
-            
+
             // Show success notification
             this.showNotification('Code inserted at cursor position', 'success');
-            
+
             // Focus the editor
             window.codeEditor.focus();
-            
+
         } catch (error) {
             console.error('Error inserting code:', error);
             this.showNotification('Failed to insert code', 'error');
@@ -944,6 +1057,70 @@ class ChatGPTAssistant {
             // Fallback to console or simple alert
             console.log(`${type.toUpperCase()}: ${message}`);
         }
+    }
+
+    getReferencedFiles() {
+        const files = [];
+
+        this.referencedFiles.forEach(filePath => {
+            const file = window.fileSystem.readFile(filePath);
+            if (file) {
+                files.push({
+                    path: filePath,
+                    content: file.content,
+                    language: this.getFileLanguage(filePath)
+                });
+            }
+        });
+
+        return files;
+    }
+
+    addFileReference(filePath) {
+        if (window.fileSystem.readFile(filePath)) {
+            this.referencedFiles.add(filePath);
+            this.updateFileReferencesUI();
+            this.saveSettings();
+        }
+    }
+
+    removeFileReference(filePath) {
+        this.referencedFiles.delete(filePath);
+        this.updateFileReferencesUI();
+        this.saveSettings();
+    }
+
+    clearFileReferences() {
+        this.referencedFiles.clear();
+        this.updateFileReferencesUI();
+        this.saveSettings();
+    }
+
+    updateFileReferencesUI() {
+        const container = document.getElementById('fileReferences');
+        if (!container) return;
+
+        if (this.referencedFiles.size === 0) {
+            container.innerHTML = '<div class="no-references">No files referenced</div>';
+            return;
+        }
+
+        const html = Array.from(this.referencedFiles).map(filePath => {
+            const fileName = filePath.split('/').pop();
+            return `
+            <div class="reference-item" data-path="${filePath}">
+                <span class="reference-name" title="${filePath}">
+                    <i class="fas fa-file-code"></i>
+                    ${fileName}
+                </span>
+                <button class="reference-remove" onclick="chatGPT.removeFileReference('${filePath}')" title="Remove reference">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        }).join('');
+
+        container.innerHTML = html;
     }
 
     toggleCodeWrap(codeId) {
@@ -1087,15 +1264,56 @@ class ChatGPTAssistant {
     }
 
     clearChat() {
+        // Clear all conversation data
         this.messages = [];
-        const chatMessages = document.getElementById('chatMessages');
-        chatMessages.innerHTML = '';
-
-        // Reset history navigation but keep message history
+        this.messageHistory = [];
         this.historyIndex = -1;
         this.currentDraft = '';
+        
+        // Clear all file references
+        this.referencedFiles.clear();
+        
+        // Clear the chat UI
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = '';
+        
+        // Clear the input field
+        const chatInput = document.getElementById('chatInput');
+        chatInput.value = '';
+        this.autoResizeInput(chatInput);
+        
+        // Update file references UI
+        this.updateFileReferencesUI();
+        
+        // Save cleared state
+        this.saveSettings();
+        
+        // Hide history indicator
+        const indicator = document.getElementById('historyIndicator');
+        if (indicator) {
+            indicator.classList.remove('show');
+        }
+        
+        // Show fresh start message
+        this.addSystemMessage('🔄 Chat cleared! Starting fresh. How can I help you today?');
+    }
 
-        this.addSystemMessage('Hello there! How can I help you?');
+    resetAssistant() {
+        const confirmed = confirm(
+            'This will permanently clear:\n' +
+            '• All conversation history\n' +
+            '• All file references\n' +
+            '• Message history navigation\n\n' +
+            'Are you sure you want to start completely fresh?'
+        );
+        
+        if (!confirmed) return;
+        
+        // Perform complete reset
+        this.clearChat();
+        
+        // Show confirmation
+        this.showNotification('AI Assistant reset successfully - starting fresh!', 'success');
     }
 
     clearHistory() {
@@ -1129,6 +1347,120 @@ class ChatGPTAssistant {
         URL.revokeObjectURL(url);
     }
 
+    showFileSelector() {
+        const modal = document.createElement('div');
+        modal.className = 'modal file-selector-modal';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add File Reference</h2>
+                    <button class="btn-close" onclick="this.closest('.modal').remove()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="file-selector-content">
+                        <div class="selector-search">
+                            <input type="text" id="fileSelectorSearch" placeholder="Search files..." />
+                        </div>
+                        <div class="selector-files" id="selectorFiles">
+                            ${this.renderFileSelector()}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.classList.add('show');
+
+        // Add search functionality
+        const searchInput = modal.querySelector('#fileSelectorSearch');
+        searchInput.addEventListener('input', (e) => {
+            this.filterFileSelector(e.target.value);
+        });
+
+        // Close modal when clicking outside
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+    }
+
+    renderFileSelector() {
+        const files = window.fileSystem.getAllFiles();
+
+        return files.map(file => {
+            const isReferenced = this.referencedFiles.has(file.path);
+            const fileName = file.path.split('/').pop();
+            const fileIcon = this.getFileIcon(fileName);
+
+            return `
+                <div class="selector-file-item ${isReferenced ? 'referenced' : ''}" data-path="${file.path}">
+                    <div class="selector-file-info">
+                        <i class="${fileIcon}"></i>
+                        <span class="selector-file-name">${fileName}</span>
+                        <span class="selector-file-path">${file.path}</span>
+                    </div>
+                    <button class="selector-file-action" onclick="chatGPT.toggleFileReference('${file.path}')">
+                        ${isReferenced ? '<i class="fas fa-minus"></i>' : '<i class="fas fa-plus"></i>'}
+                    </button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    toggleFileReference(filePath) {
+        if (this.referencedFiles.has(filePath)) {
+            this.removeFileReference(filePath);
+        } else {
+            this.addFileReference(filePath);
+        }
+
+        // Update the file selector display
+        const modal = document.querySelector('.file-selector-modal');
+        if (modal) {
+            const filesContainer = modal.querySelector('#selectorFiles');
+            filesContainer.innerHTML = this.renderFileSelector();
+        }
+    }
+
+    filterFileSelector(searchTerm) {
+        const modal = document.querySelector('.file-selector-modal');
+        if (!modal) return;
+
+        const items = modal.querySelectorAll('.selector-file-item');
+        const term = searchTerm.toLowerCase();
+
+        items.forEach(item => {
+            const fileName = item.querySelector('.selector-file-name').textContent.toLowerCase();
+            const filePath = item.querySelector('.selector-file-path').textContent.toLowerCase();
+
+            if (fileName.includes(term) || filePath.includes(term)) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
+    getFileIcon(fileName) {
+        const extension = fileName.split('.').pop()?.toLowerCase();
+        const iconMap = {
+            'html': 'fab fa-html5',
+            'css': 'fab fa-css3-alt',
+            'js': 'fab fa-js-square',
+            'json': 'fas fa-code',
+            'md': 'fab fa-markdown',
+            'txt': 'fas fa-file-alt',
+            'xml': 'fas fa-code',
+            'svg': 'fas fa-image'
+        };
+
+        return iconMap[extension] || 'fas fa-file-code';
+    }
+
     // Quick action methods
     explainCode() {
         if (window.codeEditor && window.codeEditor.currentFile) {
@@ -1136,8 +1468,40 @@ class ChatGPTAssistant {
             const code = selection || window.codeEditor.getValue();
 
             if (code && code.trim()) {
+                // Show cost warning confirmation
+                const codeLength = code.length;
+                const estimatedCost = this.estimateCost(codeLength);
+                const fileName = window.codeEditor.currentFile.path.split('/').pop();
+                const analysisType = selection ? 'selected code' : 'entire file';
+                
+                const confirmed = confirm(
+                    `🤖 Code Explanation Request\n\n` +
+                    `File: ${fileName}\n` +
+                    `Analysis: ${analysisType} (${codeLength} characters)\n` +
+                    `Estimated cost: ${estimatedCost}\n\n` +
+                    `This will send your code to OpenAI for analysis.\n` +
+                    `Continue?`
+                );
+
+                if (!confirmed) return;
+
                 const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
-                const message = `Can you explain this ${fileExtension} code?\n\n\`\`\`${fileExtension}\n${code}\n\`\`\``;
+                
+                const message = `Please explain this ${fileExtension} code from "${fileName}":
+
+**What I'd like to understand:**
+- What does this code do?
+- How does it work step by step?
+- What are the key concepts used?
+- Are there any important patterns or techniques?
+- What could be improved or done differently?
+
+\`\`\`${fileExtension}
+${code}
+\`\`\`
+
+${selection ? `*(Explaining selected code only)*` : `*(Explaining entire file)*`}`;
+
                 document.getElementById('chatInput').value = message;
                 this.sendMessage();
             } else {
@@ -1150,31 +1514,283 @@ class ChatGPTAssistant {
 
     fixCode() {
         if (window.codeEditor && window.codeEditor.currentFile) {
-            const code = window.codeEditor.getValue();
+            const selection = window.codeEditor.editor.getSelection();
+            const code = selection || window.codeEditor.getValue();
 
             if (code && code.trim()) {
+                // Show cost warning confirmation
+                const codeLength = code.length;
+                const estimatedCost = this.estimateCost(codeLength, 'analysis');
+                const fileName = window.codeEditor.currentFile.path.split('/').pop();
+                const analysisType = selection ? 'selected code' : 'entire file';
+                
+                const confirmed = confirm(
+                    `🔍 Code Analysis & Bug Fix Request\n\n` +
+                    `File: ${fileName}\n` +
+                    `Analysis: ${analysisType} (${codeLength} characters)\n` +
+                    `Estimated cost: ${estimatedCost}\n\n` +
+                    `This will perform comprehensive code analysis including:\n` +
+                    `• Bug detection and fixes\n` +
+                    `• Security vulnerability checks\n` +
+                    `• Performance optimization suggestions\n\n` +
+                    `Continue with analysis?`
+                );
+
+                if (!confirmed) return;
+
                 const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
-                const message = `I'm having issues with this ${fileExtension} code. Can you help me identify and fix any problems?\n\n\`\`\`${fileExtension}\n${code}\n\`\`\``;
+                
+                // Create a comprehensive prompt for code analysis
+                const message = `Please analyze this ${fileExtension} code from "${fileName}" for potential issues and bugs:
+                
+**Please provide:**
+1. **Issues Found:** List all problems discovered with explanations
+2. **Severity:** Rate each issue (Critical, High, Medium, Low)
+3. **Fixed Code:** Provide corrected version with improvements
+4. **Explanation:** Explain what was wrong and why the fix works
+
+\`\`\`${fileExtension}
+${code}
+\`\`\`
+
+${selection ? `*(Analyzing selected code only)*` : `*(Analyzing entire file)*`}`;
+
                 document.getElementById('chatInput').value = message;
                 this.sendMessage();
             } else {
-                this.addSystemMessage('⚠️ No code found to fix. Please add some code to your file first.');
+                this.addSystemMessage('⚠️ No code found to analyze. Please add some code to your file first.');
             }
         } else {
-            this.addSystemMessage('⚠️ Please open a file first to fix code.');
+            this.addSystemMessage('⚠️ Please open a file first to analyze code for issues.');
         }
     }
 
     optimizeCode() {
         if (window.codeEditor && window.codeEditor.currentFile) {
-            const code = window.codeEditor.getValue();
+            const selection = window.codeEditor.editor.getSelection();
+            const code = selection || window.codeEditor.getValue();
 
-            if (code) {
-                const message = `Can you suggest optimizations for this code?\\n\\n\`\`\`\\n${code}\\n\`\`\``;
+            if (code && code.trim()) {
+                // Show cost warning confirmation
+                const codeLength = code.length;
+                const estimatedCost = this.estimateCost(codeLength, 'optimization');
+                const fileName = window.codeEditor.currentFile.path.split('/').pop();
+                const analysisType = selection ? 'selected code' : 'entire file';
+                
+                const confirmed = confirm(
+                    `🚀 Code Optimization Request\n\n` +
+                    `File: ${fileName}\n` +
+                    `Analysis: ${analysisType} (${codeLength} characters)\n` +
+                    `Estimated cost: ${estimatedCost}\n\n` +
+                    `This will analyze and optimize your code for:\n` +
+                    `• Performance improvements\n` +
+                    `• Memory efficiency\n` +
+                    `• Best practices implementation\n` +
+                    `• Code readability enhancements\n\n` +
+                    `Continue with optimization?`
+                );
+
+                if (!confirmed) return;
+
+                const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
+                
+                const message = `Please analyze and optimize this ${fileExtension} code from "${fileName}":
+
+**Optimization Goals:**
+- Improve performance and efficiency
+- Reduce code complexity and improve readability
+- Follow best practices and modern standards
+- Minimize memory usage and resource consumption
+- Enhance maintainability
+
+**Please provide:**
+1. **Current Issues:** What can be improved?
+2. **Optimized Code:** Rewritten version with improvements
+3. **Performance Impact:** Expected benefits of the changes
+4. **Explanation:** Why these optimizations work
+
+\`\`\`${fileExtension}
+${code}
+\`\`\`
+
+${selection ? `*(Optimizing selected code only)*` : `*(Optimizing entire file)*`}`;
+
                 document.getElementById('chatInput').value = message;
                 this.sendMessage();
+            } else {
+                this.addSystemMessage('⚠️ No code found to optimize. Please add some code to your file first.');
             }
+        } else {
+            this.addSystemMessage('⚠️ Please open a file first to optimize code.');
         }
+    }
+
+    reviewCode() {
+        if (window.codeEditor && window.codeEditor.currentFile) {
+            const selection = window.codeEditor.editor.getSelection();
+            const code = selection || window.codeEditor.getValue();
+
+            if (code && code.trim()) {
+                // Show cost warning confirmation
+                const codeLength = code.length;
+                const estimatedCost = this.estimateCost(codeLength, 'review');
+                const fileName = window.codeEditor.currentFile.path.split('/').pop();
+                const analysisType = selection ? 'selected code' : 'entire file';
+                
+                const confirmed = confirm(
+                    `📝 Comprehensive Code Review Request\n\n` +
+                    `File: ${fileName}\n` +
+                    `Analysis: ${analysisType} (${codeLength} characters)\n` +
+                    `Estimated cost: ${estimatedCost}\n\n` +
+                    `This will perform a detailed code review including:\n` +
+                    `• Code quality assessment\n` +
+                    `• Security analysis\n` +
+                    `• Best practices evaluation\n` +
+                    `• Performance review\n` +
+                    `• Maintainability analysis\n\n` +
+                    `Continue with comprehensive review?`
+                );
+
+                if (!confirmed) return;
+
+                const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
+                
+                const message = `Please conduct a comprehensive code review of this ${fileExtension} code from "${fileName}":
+
+**Review Checklist:**
+- **Code Quality:** Readability, maintainability, structure
+- **Best Practices:** Following language/framework conventions
+- **Security:** Potential vulnerabilities and security issues
+- **Performance:** Efficiency and optimization opportunities
+- **Testing:** Testability and potential edge cases
+- **Documentation:** Code comments and self-documentation
+
+**Review Format:**
+1. **Overall Assessment:** General code quality rating
+2. **Strengths:** What's done well
+3. **Issues & Improvements:** Detailed feedback with examples
+4. **Recommendations:** Specific actionable suggestions
+5. **Refactored Code:** Improved version (if significant changes needed)
+
+\`\`\`${fileExtension}
+${code}
+\`\`\`
+
+${selection ? `*(Reviewing selected code only)*` : `*(Reviewing entire file)*`}`;
+
+                document.getElementById('chatInput').value = message;
+                this.sendMessage();
+            } else {
+                this.addSystemMessage('⚠️ No code found to review. Please add some code to your file first.');
+            }
+        } else {
+            this.addSystemMessage('⚠️ Please open a file first to review code.');
+        }
+    }
+
+    estimateCost(codeLength, analysisType = 'basic') {
+        // Rough estimation based on token count and model pricing
+        const tokensPerChar = 0.25; // Approximate tokens per character
+        const inputTokens = codeLength * tokensPerChar;
+        
+        // Add estimated output tokens based on analysis type
+        const outputTokenMultiplier = {
+            'basic': 1.5,
+            'analysis': 2.0,
+            'optimization': 2.5,
+            'review': 3.0
+        };
+        
+        const outputTokens = inputTokens * (outputTokenMultiplier[analysisType] || 1.5);
+        const totalTokens = inputTokens + outputTokens;
+
+        // Get model pricing (approximate costs per 1K tokens)
+        const modelPricing = this.getModelPricing(this.model);
+        const estimatedCost = (totalTokens / 1000) * modelPricing;
+
+        // Format cost display
+        if (estimatedCost < 0.01) {
+            return 'Less than $0.01';
+        } else if (estimatedCost < 0.10) {
+            return `~$${estimatedCost.toFixed(3)}`;
+        } else {
+            return `~$${estimatedCost.toFixed(2)}`;
+        }
+    }
+
+    getModelPricing(modelId) {
+        const pricing = {
+            // GPT-3.5 models (input/output combined average)
+            'gpt-3.5-turbo': 0.0015,
+            'gpt-3.5-turbo-16k': 0.003,
+            'gpt-3.5-turbo-1106': 0.0015,
+            'gpt-3.5-turbo-0125': 0.001,
+
+            // GPT-4 models
+            'gpt-4': 0.045,
+            'gpt-4-32k': 0.09,
+            'gpt-4-turbo': 0.02,
+            'gpt-4-turbo-preview': 0.02,
+            'gpt-4-1106-preview': 0.02,
+            'gpt-4-0125-preview': 0.02,
+
+            // GPT-4o models
+            'gpt-4o': 0.0075,
+            'gpt-4o-mini': 0.0003,
+            'gpt-4o-2024-05-13': 0.0075,
+            'gpt-4o-2024-08-06': 0.0075,
+
+            // Legacy models
+            'text-davinci-003': 0.02,
+            'code-davinci-002': 0.02
+        };
+
+        return pricing[modelId] || 0.02; // Default to moderate pricing
+    }
+
+    showCostInfo() {
+        const costInfoHTML = `
+            <div class="cost-info">
+                <h3>💰 AI Usage Costs</h3>
+                
+                <div class="cost-section">
+                    <h4>Current Model: ${this.getModelName()}</h4>
+                    <p>Approximate cost per 1K tokens: <strong>$${this.getModelPricing(this.model).toFixed(4)}</strong></p>
+                </div>
+
+                <div class="cost-section">
+                    <h4>💡 Cost-Saving Tips:</h4>
+                    <ul>
+                        <li><strong>Select specific code:</strong> Analyze only the code you need help with</li>
+                        <li><strong>Use GPT-3.5 Turbo:</strong> For simple questions, it's 20x cheaper than GPT-4</li>
+                        <li><strong>Try GPT-4o Mini:</strong> Great balance of capability and cost</li>
+                        <li><strong>Be specific:</strong> Clear questions get better answers with fewer follow-ups</li>
+                        <li><strong>Review before sending:</strong> Make sure your question is complete</li>
+                    </ul>
+                </div>
+
+                <div class="cost-section">
+                    <h4>📊 Typical Costs:</h4>
+                    <ul>
+                        <li><strong>Small function (50 lines):</strong> $0.001 - $0.01</li>
+                        <li><strong>Medium file (200 lines):</strong> $0.005 - $0.05</li>
+                        <li><strong>Large file (500+ lines):</strong> $0.02 - $0.20</li>
+                    </ul>
+                </div>
+
+                <div class="cost-note">
+                    <p><strong>Note:</strong> These are estimates. Actual costs depend on your OpenAI plan and usage.</p>
+                </div>
+            </div>
+        `;
+
+        this.renderMessage('system', costInfoHTML);
+    }
+
+    // Helper method to get model display name
+    getModelName() {
+        const modelData = this.availableModels.find(m => m.id === this.model);
+        return modelData ? modelData.name : this.model;
     }
 
     generateCode(prompt) {
@@ -2033,6 +2649,509 @@ const chatCSS = `
             color: #81c784;
         }
     }
+
+    /* File References Section */
+    .file-references-section {
+        border-bottom: 1px solid var(--border-color);
+        padding: var(--spacing-sm);
+        background: var(--tertiary-bg);
+    }
+
+    .references-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .references-header h4 {
+        margin: 0;
+        font-size: var(--font-size-sm);
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .references-actions {
+        display: flex;
+        gap: var(--spacing-xs);
+    }
+
+    .btn-reference-add,
+    .btn-reference-clear {
+        width: 20px;
+        height: 20px;
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+    }
+
+    .btn-reference-add:hover {
+        background: var(--success-color);
+        color: white;
+    }
+
+    .btn-reference-clear:hover {
+        background: var(--error-color);
+        color: white;
+    }
+
+    .file-references {
+        max-height: 150px;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-xs);
+    }
+
+    .no-references {
+        text-align: center;
+        color: var(--text-muted);
+        font-size: var(--font-size-xs);
+        font-style: italic;
+        padding: var(--spacing-sm);
+    }
+
+    .reference-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--spacing-xs);
+        background: var(--secondary-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        font-size: var(--font-size-xs);
+        transition: var(--transition);
+    }
+
+    .reference-item:hover {
+        background: var(--hover-bg);
+    }
+
+    .reference-name {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        flex: 1;
+        overflow: hidden;
+        color: var(--text-primary);
+    }
+
+    .reference-name i {
+        color: var(--text-secondary);
+        flex-shrink: 0;
+    }
+
+    .reference-remove {
+        width: 16px;
+        height: 16px;
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        border-radius: 2px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+    }
+
+    .reference-remove:hover {
+        background: var(--error-color);
+        color: white;
+    }
+
+    /* File Selector Modal */
+    .file-selector-modal .modal-content {
+        width: 600px;
+        height: 500px;
+    }
+
+    .file-selector-content {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .selector-search {
+        margin-bottom: var(--spacing-md);
+    }
+
+    .selector-search input {
+        width: 100%;
+        padding: var(--spacing-sm);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        background: var(--primary-bg);
+        color: var(--text-primary);
+        font-size: var(--font-size-sm);
+    }
+
+    .selector-files {
+        flex: 1;
+        overflow-y: auto;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        background: var(--primary-bg);
+    }
+
+    .selector-file-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: var(--spacing-sm);
+        border-bottom: 1px solid var(--border-color);
+        transition: var(--transition);
+    }
+
+    .selector-file-item:hover {
+        background: var(--hover-bg);
+    }
+
+    .selector-file-item.referenced {
+        background: rgba(var(--success-color-rgb), 0.1);
+        border-left: 3px solid var(--success-color);
+    }
+
+    .selector-file-info {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .selector-file-info i {
+        color: var(--text-secondary);
+        width: 16px;
+        text-align: center;
+    }
+
+    .selector-file-name {
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .selector-file-path {
+        color: var(--text-secondary);
+        font-size: var(--font-size-xs);
+        margin-left: auto;
+        text-align: right;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 200px;
+    }
+
+    .selector-file-action {
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition);
+    }
+
+    .selector-file-action:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .selector-file-item.referenced .selector-file-action:hover {
+        background: var(--error-color);
+    }
+
+    /* Context indicators in chat input */
+    .chat-input-context {
+        position: absolute;
+        top: -30px;
+        left: 0;
+        right: 0;
+        background: rgba(var(--primary-color-rgb), 0.1);
+        border: 1px solid rgba(var(--primary-color-rgb), 0.3);
+        border-radius: var(--border-radius);
+        padding: var(--spacing-xs);
+        font-size: var(--font-size-xs);
+        color: var(--text-secondary);
+        display: none;
+    }
+
+    .chat-input-context.show {
+        display: block;
+    }
+
+    .context-indicator {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+    }
+
+    .context-indicator i {
+        color: var(--primary-color);
+    }
+
+    /* Add this to the existing chatCSS variable */
+    .clear-btn {
+        background: var(--error-color) !important;
+        color: white !important;
+    }
+
+    .clear-btn:hover {
+        background: var(--error-hover, #d32f2f) !important;
+        transform: translateY(-1px);
+    }
+
+    .export-btn {
+        background: var(--info-color, #1976d2) !important;
+        color: white !important;
+    }
+
+    .export-btn:hover {
+        background: var(--info-hover, #1565c0) !important;
+        transform: translateY(-1px);
+    }
+
+    .settings-btn {
+        background: var(--warning-color, #f57c00) !important;
+        color: white !important;
+    }
+
+    .settings-btn:hover {
+        background: var(--warning-hover, #ef6c00) !important;
+        transform: translateY(-1px);
+    }
+
+    /* Quick actions right alignment */
+    .quick-actions-right {
+        margin-left: auto;
+    }
+
+    .quick-actions-right .quick-action-btn {
+        font-weight: 500;
+    }
+
+    /* Cost info styling */
+    .cost-info {
+        padding: var(--spacing-lg);
+        background: var(--tertiary-bg);
+        border-radius: var(--border-radius);
+        margin: var(--spacing-sm) 0;
+        border-left: 4px solid #f39c12;
+    }
+    
+    .cost-info h3 {
+        margin: 0 0 var(--spacing-md) 0;
+        color: var(--text-primary);
+        font-size: var(--font-size-lg);
+    }
+    
+    .cost-section {
+        margin-bottom: var(--spacing-md);
+        padding-bottom: var(--spacing-md);
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .cost-section:last-of-type {
+        border-bottom: none;
+        margin-bottom: 0;
+    }
+    
+    .cost-section h4 {
+        margin: 0 0 var(--spacing-sm) 0;
+        color: var(--text-primary);
+        font-size: var(--font-size-md);
+    }
+    
+    .cost-section ul {
+        margin: var(--spacing-xs) 0;
+        padding-left: var(--spacing-lg);
+    }
+    
+    .cost-section li {
+        margin-bottom: var(--spacing-xs);
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+    
+    .cost-section strong {
+        color: var(--text-primary);
+    }
+    
+    .cost-note {
+        background: rgba(243, 156, 18, 0.1);
+        padding: var(--spacing-sm);
+        border-radius: var(--border-radius);
+        font-size: var(--font-size-sm);
+        font-style: italic;
+    }
+    
+    .cost-note p {
+        margin: 0;
+        color: var(--text-secondary);
+    }
+
+    /* Enhanced quick action button styling for cost awareness */
+    .quick-action-btn[onclick*="Code()"] {
+        position: relative;
+    }
+    
+    .quick-action-btn[onclick*="Code()"]::after {
+        content: "💰";
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        font-size: 0.6em;
+        opacity: 0.7;
+    }
+
+    /* Typing indicator styles */
+    .typing-indicator .message-content {
+        padding: var(--spacing-sm);
+    }
+    
+    .typing-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: var(--spacing-xs);
+    }
+    
+    .typing-animation {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+    }
+    
+    .typing-animation span {
+        width: 6px;
+        height: 6px;
+        background: var(--text-secondary);
+        border-radius: 50%;
+        animation: typing 1.4s infinite ease-in-out;
+    }
+    
+    .typing-animation span:nth-child(1) {
+        animation-delay: -0.32s;
+    }
+    
+    .typing-animation span:nth-child(2) {
+        animation-delay: -0.16s;
+    }
+    
+    /* Stop button styling */
+    .stop-btn {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--error-color, #dc3545);
+        color: white;
+        border: none;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(220, 53, 69, 0.3);
+    }
+    
+    .stop-btn:hover {
+        background: var(--error-hover, #c82333);
+        transform: translateY(-1px);
+        box-shadow: 0 2px 6px rgba(220, 53, 69, 0.4);
+    }
+    
+    .stop-btn:active {
+        transform: translateY(0);
+        box-shadow: 0 1px 2px rgba(220, 53, 69, 0.3);
+    }
+    
+    .stop-btn:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.5);
+    }
+    
+    .stop-btn svg {
+        flex-shrink: 0;
+    }
+    
+    .typing-status {
+        font-size: var(--font-size-xs);
+        color: var(--text-secondary);
+        font-style: italic;
+    }
+    
+    /* Pulse animation for the typing indicator */
+    .typing-indicator {
+        animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+        0% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.7;
+        }
+        100% {
+            opacity: 1;
+        }
+    }
+    
+    @keyframes typing {
+        0%, 80%, 100% {
+            transform: scale(0.8);
+            opacity: 0.5;
+        }
+        40% {
+            transform: scale(1);
+            opacity: 1;
+        }
+    }
+    
+    /* Dark theme adjustments for stop button */
+    @media (prefers-color-scheme: dark) {
+        .stop-btn {
+            background: #e74c3c;
+            border: 1px solid #c0392b;
+        }
+        
+        .stop-btn:hover {
+            background: #c0392b;
+            border-color: #a93226;
+        }
+        
+        .stop-btn:focus {
+            box-shadow: 0 0 0 2px rgba(231, 76, 60, 0.5);
+        }
+    }
+    
+    /* Responsive adjustments for stop button */
+    @media (max-width: 768px) {
+        .stop-btn {
+            padding: 3px 6px;
+            font-size: 0.65em;
+        }
+        
+        .stop-btn svg {
+            width: 10px;
+            height: 10px;
+        }
+        
+        .typing-header {
+            gap: var(--spacing-xs);
+        }
+    }
 `;
 
 const chatGPTStyle = document.createElement('style');
@@ -2043,23 +3162,63 @@ document.head.appendChild(chatGPTStyle);
 document.addEventListener('DOMContentLoaded', () => {
     const rightPanel = document.querySelector('.right-panel .panel-content');
     if (rightPanel) {
+        // Add file references section before existing quick actions
+        const fileReferencesSection = document.createElement('div');
+        fileReferencesSection.className = 'file-references-section';
+        fileReferencesSection.innerHTML = `
+            <div class="references-header">
+                <h4>Referenced Files</h4>
+                <div class="references-actions">
+                    <button class="btn-reference-add" onclick="chatGPT.showFileSelector()" title="Add file reference">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button class="btn-reference-clear" onclick="chatGPT.clearFileReferences()" title="Clear all references">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            <div id="fileReferences" class="file-references">
+                <div class="no-references">No files referenced</div>
+            </div>
+        `;
+
+        const chatContainer = document.querySelector('.chat-container');
+        chatContainer.insertBefore(fileReferencesSection, chatContainer.firstChild);
+
+        // Enhanced quick actions with cost awareness
         const quickActions = document.createElement('div');
         quickActions.className = 'chat-quick-actions';
         quickActions.innerHTML = `
             <div class="quick-actions-left">
-                <button class="quick-action-btn" onclick="chatGPT.explainCode()">Explain Code</button>
-                <button class="quick-action-btn" onclick="chatGPT.fixCode()">Fix Code</button>
-                <button class="quick-action-btn" onclick="chatGPT.optimizeCode()">Optimize</button>
+                <button class="quick-action-btn" onclick="chatGPT.explainCode()" title="Explain code (cost confirmation included)">
+                    <i class="fas fa-question-circle"></i> Explain
+                </button>
+                <button class="quick-action-btn" onclick="chatGPT.fixCode()" title="Analyze and fix code issues (cost confirmation included)">
+                    <i class="fas fa-bug"></i> Fix Issues
+                </button>
+                <button class="quick-action-btn" onclick="chatGPT.reviewCode()" title="Comprehensive code review (cost confirmation included)">
+                    <i class="fas fa-search"></i> Review
+                </button>
+                <button class="quick-action-btn" onclick="chatGPT.optimizeCode()" title="Optimize code performance (cost confirmation included)">
+                    <i class="fas fa-rocket"></i> Optimize
+                </button>
+                <button class="quick-action-btn" onclick="chatGPT.showCostInfo()" title="View AI usage costs and tips">
+                    <i class="fas fa-dollar-sign"></i> Costs
+                </button>
             </div>
             <div class="quick-actions-right">
-                <button class="quick-action-btn" onclick="chatGPT.showModelComparison()">Compare Models</button>
-                <button class="quick-action-btn" onclick="chatGPT.showSetupInstructions()">Setup Help</button>
-                <button class="quick-action-btn" onclick="chatGPT.clearChat()">Clear Chat</button>
+                <button class="quick-action-btn export-btn" onclick="chatGPT.exportChat()" title="Export chat history">
+                    <i class="fas fa-download"></i> Export
+                </button>
+                <button class="quick-action-btn clear-btn" onclick="chatGPT.resetAssistant()" title="Clear all conversations and file references">
+                    <i class="fas fa-broom"></i> Clear All
+                </button>
+                <button class="quick-action-btn settings-btn" onclick="chatGPT.openSettings()" title="Open AI settings">
+                    <i class="fas fa-cog"></i> Settings
+                </button>
             </div>
         `;
 
-        // Insert before chat input container
-        const chatContainer = document.querySelector('.chat-container');
         const inputContainer = document.querySelector('.chat-input-container');
 
         // Add history indicator
@@ -2077,6 +3236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chatContainer.appendChild(inputHint);
     }
 });
+
 
 // Create global ChatGPT assistant instance
 window.chatGPT = new ChatGPTAssistant();

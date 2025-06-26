@@ -199,7 +199,7 @@ body {
 .panel-content {
   flex: 1;
   overflow: auto;
-  padding: var(--spacing-sm);
+  padding: 0; /* Remove padding to allow full height usage */
 }
 
 /* Panel Resizers */
@@ -418,6 +418,9 @@ body {
 /* File Explorer */
 .file-explorer {
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-sm); /* Add padding back to file explorer container */
 }
 
 .workspace-title {
@@ -427,11 +430,41 @@ body {
   letter-spacing: 0.5px;
   color: var(--text-secondary);
   margin-bottom: var(--spacing-sm);
-  padding: 0 var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-xs) 0; /* Add top padding, keep existing bottom margin */
+  flex-shrink: 0; /* Prevent title from shrinking */
 }
 
-.file-tree {
-  user-select: none;
+.file-tree-empty-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%; /* Use full available height */
+  padding: var(--spacing-xl);
+  text-align: center;
+}
+
+#fileTree {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+}
+
+#fileTree::-webkit-scrollbar {
+  width: 6px;
+}
+
+#fileTree::-webkit-scrollbar-track {
+  background: var(--secondary-bg);
+  border-radius: 3px;
+}
+
+#fileTree::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 3px;
+}
+
+#fileTree::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }
 
 .file-item,
@@ -1571,4 +1604,46 @@ select option:focus {
     to {
         transform: rotate(360deg);
     }
+}
+
+.file-tree-content {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: var(--spacing-xs); /* Add some padding for scrollbar */
+}
+
+/* Ensure proper spacing for file and folder items */
+.file-item,
+.folder-item {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  font-size: var(--font-size-sm);
+  border-radius: var(--border-radius);
+  margin: 1px var(--spacing-xs); /* Add horizontal margin */
+  transition: var(--transition);
+}
+
+/* Better visual hierarchy for nested folders */
+.folder-children {
+  margin-left: var(--spacing-lg);
+  border-left: 1px solid var(--border-color);
+  padding-left: var(--spacing-sm);
+  position: relative;
+}
+
+.folder-children.collapsed {
+  display: none;
+}
+
+/* Add a subtle visual connector for folder children */
+.folder-children::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, var(--border-color) 0%, transparent 100%);
 }
