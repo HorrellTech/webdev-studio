@@ -58,6 +58,15 @@ class ChatGPTAssistant {
         // Setup event listeners
         this.setupEventListeners();
 
+        // Update model dropdown with error handling
+        try {
+            if (window.settingsManager && typeof window.settingsManager.updateModelDropdown === 'function') {
+                window.settingsManager.updateModelDropdown();
+            }
+        } catch (error) {
+            console.warn('Failed to update model dropdown from ChatGPT:', error);
+        }
+
         // Update UI based on API key availability
         this.updateUI();
         
@@ -195,6 +204,13 @@ class ChatGPTAssistant {
         this.model = settings.model || 'gpt-3.5-turbo';
         this.maxTokens = settings.maxTokens || 2000;
 
+        // Add debug logging to see what's being loaded
+        console.log('🔧 Loading AI settings:', {
+            apiKey: this.apiKey ? this.apiKey.substring(0, 10) + '...' : 'Not set',
+            model: this.model,
+            maxTokens: this.maxTokens
+        });
+
         // Load message history
         this.messageHistory = settings.messageHistory || [];
         // Limit history to last 50 messages to prevent excessive storage
@@ -206,6 +222,15 @@ class ChatGPTAssistant {
         if (settings.referencedFiles) {
             this.referencedFiles = new Set(settings.referencedFiles);
         }
+    }
+
+    debugSettings() {
+        console.log('🔍 Current ChatGPT Settings:', {
+            apiKey: this.apiKey ? this.apiKey.substring(0, 10) + '...' : 'Not set',
+            model: this.model,
+            maxTokens: this.maxTokens,
+            localStorage: JSON.parse(localStorage.getItem('webdev-studio-ai-settings') || '{}')
+        });
     }
 
     saveSettings() {
@@ -220,11 +245,15 @@ class ChatGPTAssistant {
     }
 
     updateSettings(newSettings) {
+        // Add debug logging to see what settings are being updated
+        console.log('🔄 Updating AI settings:', newSettings);
+        
         if (newSettings.apiKey !== undefined) {
             this.apiKey = newSettings.apiKey;
         }
         if (newSettings.model !== undefined) {
             this.model = newSettings.model;
+            console.log('📝 Model updated to:', this.model);
         }
         if (newSettings.maxTokens !== undefined) {
             this.maxTokens = newSettings.maxTokens;
@@ -232,6 +261,9 @@ class ChatGPTAssistant {
 
         this.saveSettings();
         this.updateUI();
+        
+        // Log the final state
+        console.log('✅ AI settings updated. Current model:', this.model);
     }
 
     openSettings() {
@@ -490,9 +522,13 @@ class ChatGPTAssistant {
     }
 
     async callOpenAI(messages, signal = null) {
-        // Add debug logging
-        console.log('🤖 Using model:', this.model);
-        console.log('🔑 API Key (first 10 chars):', this.apiKey?.substring(0, 10) + '...');
+        // Enhanced debug logging
+        console.log('🤖 API Call Details:', {
+            model: this.model,
+            apiKeyPrefix: this.apiKey?.substring(0, 10) + '...',
+            messageCount: messages.length,
+            maxTokens: this.maxTokens
+        });
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -514,10 +550,12 @@ class ChatGPTAssistant {
 
         if (!response.ok) {
             const error = await response.json();
+            console.error('❌ OpenAI API Error:', error);
             throw new Error(error.error?.message || 'API request failed');
         }
 
         const data = await response.json();
+        console.log('✅ OpenAI Response received. Model used:', data.model);
         return data.choices[0].message.content;
     }
 

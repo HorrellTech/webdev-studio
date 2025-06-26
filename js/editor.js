@@ -416,29 +416,58 @@ class CodeEditor {
     updateFontSize() {
         if (this.editor) {
             const wrapper = this.editor.getWrapperElement();
-            wrapper.style.fontSize = this.settings.fontSize + 'px';
+            if (wrapper) {
+                wrapper.style.fontSize = this.settings.fontSize + 'px';
+                
+                // Also update the textarea directly for better compatibility
+                const textarea = this.editor.getTextArea();
+                if (textarea) {
+                    textarea.style.fontSize = this.settings.fontSize + 'px';
+                }
+                
+                // Refresh the editor to apply font size changes
+                this.editor.refresh();
+            }
         }
     }
     
     updateSettings(newSettings) {
+        // Merge new settings with existing settings
         Object.assign(this.settings, newSettings);
         
         if (this.editor) {
-            if (newSettings.fontSize) {
+            // Apply font size changes
+            if (newSettings.fontSize !== undefined) {
                 this.updateFontSize();
             }
-            if (newSettings.tabSize) {
+            
+            // Apply tab size changes
+            if (newSettings.tabSize !== undefined) {
                 this.editor.setOption('indentUnit', this.settings.tabSize);
+                this.editor.setOption('tabSize', this.settings.tabSize);
             }
+            
+            // Apply word wrap changes
             if (newSettings.wordWrap !== undefined) {
                 this.editor.setOption('lineWrapping', this.settings.wordWrap);
             }
+            
+            // Apply line numbers changes
             if (newSettings.lineNumbers !== undefined) {
                 this.editor.setOption('lineNumbers', this.settings.lineNumbers);
             }
+            
+            // Apply theme changes
             if (newSettings.theme) {
                 this.editor.setOption('theme', this.settings.theme);
             }
+            
+            // Refresh editor to ensure all changes are applied
+            setTimeout(() => {
+                if (this.editor) {
+                    this.editor.refresh();
+                }
+            }, 100);
         }
     }
     

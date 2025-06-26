@@ -40,7 +40,11 @@ class SettingsManager {
         this.loadSettings();
         this.setupEventListeners();
         this.updateUI();
-        this.applySettings();
+        
+        // Apply settings with a delay to ensure all components are loaded
+        setTimeout(() => {
+            this.applySettings();
+        }, 500);
     }
 
     setupEventListeners() {
@@ -400,6 +404,75 @@ class SettingsManager {
         }
     }
 
+    updateModelDropdown() {
+        const modelSelect = document.getElementById('aiModel');
+        if (!modelSelect) return;
+
+        // Clear existing options
+        modelSelect.innerHTML = '';
+
+        // Define model groups with their options
+        const modelGroups = {
+            'GPT-4o Models (Recommended)': [
+                { value: 'gpt-4o-mini', text: 'GPT-4o Mini (🏆 Best Overall Choice)', selected: true },
+                { value: 'gpt-4o', text: 'GPT-4o (Multimodal)' },
+                { value: 'gpt-4o-2024-08-06', text: 'GPT-4o (Aug 2024)' },
+                { value: 'gpt-4o-2024-05-13', text: 'GPT-4o (May 2024)' }
+            ],
+            'GPT-4 Turbo Models': [
+                { value: 'gpt-4-turbo', text: 'GPT-4 Turbo (128K Context)' },
+                { value: 'gpt-4-turbo-preview', text: 'GPT-4 Turbo Preview' },
+                { value: 'gpt-4-1106-preview', text: 'GPT-4 Turbo 1106' },
+                { value: 'gpt-4-0125-preview', text: 'GPT-4 Turbo 0125' }
+            ],
+            'GPT-4 Standard Models': [
+                { value: 'gpt-4', text: 'GPT-4 (8K Context)' },
+                { value: 'gpt-4-32k', text: 'GPT-4 32K' },
+                { value: 'gpt-4-vision-preview', text: 'GPT-4 Vision' }
+            ],
+            'GPT-3.5 Models (Budget Friendly)': [
+                { value: 'gpt-3.5-turbo-0125', text: 'GPT-3.5 Turbo 0125 (Cheapest)' },
+                { value: 'gpt-3.5-turbo', text: 'GPT-3.5 Turbo' },
+                { value: 'gpt-3.5-turbo-16k', text: 'GPT-3.5 Turbo 16K' },
+                { value: 'gpt-3.5-turbo-1106', text: 'GPT-3.5 Turbo 1106' }
+            ],
+            'Specialized Models': [
+                { value: 'gpt-4-code-interpreter', text: 'GPT-4 Code Interpreter' },
+                { value: 'code-davinci-002', text: 'Code Davinci 002' }
+            ],
+            'Legacy Models': [
+                { value: 'text-davinci-003', text: 'Text Davinci 003' }
+            ]
+        };
+
+        // Get current model selection
+        const currentModel = this.getSetting('ai', 'model', 'gpt-4o-mini');
+
+        // Create optgroups and options
+        Object.entries(modelGroups).forEach(([groupName, models]) => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = groupName;
+
+            models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.value;
+                option.textContent = model.text;
+                
+                // Set selected based on current settings
+                if (model.value === currentModel) {
+                    option.selected = true;
+                }
+                
+                optgroup.appendChild(option);
+            });
+
+            modelSelect.appendChild(optgroup);
+        });
+
+        // Update model info display for current selection
+        this.updateModelInfoDisplay(currentModel);
+    }
+
     loadSettings() {
         const saved = localStorage.getItem('webdev-studio-settings');
         if (saved) {
@@ -475,7 +548,7 @@ class SettingsManager {
     }
 
     applyEditorSettings() {
-        if (window.codeEditor) {
+        if (window.codeEditor && typeof window.codeEditor.updateSettings === 'function') {
             const editorSettings = {
                 fontSize: this.getSetting('editor', 'fontSize', 14),
                 tabSize: this.getSetting('editor', 'tabSize', 2),
@@ -483,7 +556,13 @@ class SettingsManager {
                 lineNumbers: this.getSetting('editor', 'lineNumbers', true)
             };
 
-            window.codeEditor.updateSettings(editorSettings);
+            try {
+                window.codeEditor.updateSettings(editorSettings);
+            } catch (error) {
+                console.warn('Failed to apply editor settings:', error);
+            }
+        } else {
+            console.warn('CodeEditor updateSettings method not available');
         }
     }
 
@@ -491,15 +570,28 @@ class SettingsManager {
         if (window.chatGPT) {
             const aiSettings = {
                 apiKey: this.getSetting('ai', 'openaiApiKey', ''),
-                model: this.getSetting('ai', 'model', 'gpt-3.5-turbo'),
+                model: this.getSetting('ai', 'model', 'gpt-4o-mini'),
                 maxTokens: this.getSetting('ai', 'maxTokens', 2000)
             };
 
-            window.chatGPT.updateSettings(aiSettings);
+            try {
+                window.chatGPT.updateSettings(aiSettings);
+            } catch (error) {
+                console.warn('Failed to update ChatGPT settings:', error);
+            }
         }
 
         // Update the model dropdown with all available models
-        this.updateModelDropdown();
+        try {
+            this.updateModelDropdown();
+        } catch (error) {
+            console.warn('Failed to update model dropdown:', error);
+            // Fallback: just update the select value
+            const modelSelect = document.getElementById('aiModel');
+            if (modelSelect) {
+                modelSelect.value = this.getSetting('ai', 'model', 'gpt-4o-mini');
+            }
+        }
     }
 
     applyDriveSettings() {
@@ -561,6 +653,19 @@ class SettingsManager {
             panel.classList.remove('active');
         });
         document.getElementById(`${tabName}Settings`).classList.add('active');
+    }
+
+    saveAISettings() {
+        const formData = {
+            apiKey: document.getElementById('ai-api-key').value,
+            model: document.getElementById('ai-model-select').value,
+            maxTokens: parseInt(document.getElementById('ai-max-tokens').value)
+        };
+        
+        // Update the ChatGPT instance
+        if (window.chatGPT) {
+            window.chatGPT.updateSettings(formData);
+        }
     }
 
     toggleTheme() {

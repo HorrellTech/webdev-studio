@@ -8,13 +8,13 @@ class WebDevStudio {
             left: { collapsed: false, width: 300 },
             right: { collapsed: false, width: 350 }
         };
-        
+
         this.initialize();
     }
-    
+
     initialize() {
         console.log('WebDevStudio initialize() called');
-        
+
         // Wait for DOM to be ready
         if (document.readyState === 'loading') {
             console.log('DOM still loading, waiting for DOMContentLoaded...');
@@ -23,8 +23,8 @@ class WebDevStudio {
             console.log('DOM ready, initializing components immediately...');
             this.initializeComponents();
         }
-    }    
-    
+    }
+
     initializeComponents() {
         try {
             // Initialize components in order
@@ -34,30 +34,30 @@ class WebDevStudio {
             this.setupKeyboardShortcuts();
             this.setupMobileInterface();
             this.loadPanelStates();
-            
+
             // Mark as initialized
             this.isInitialized = true;
-            
+
             // Show welcome message
             this.showWelcomeMessage();
-            
+
             console.log('WebDev Studio initialized successfully');
-            
+
         } catch (error) {
             console.error('Failed to initialize WebDev Studio:', error);
             this.showErrorMessage('Failed to initialize the application. Please refresh the page.');
         }
     }
-    
+
     setupMenuSystem() {
         console.log('Setting up menu system...');
-        
+
         const menuItems = document.querySelectorAll('.menu-item');
         const dropdownMenus = document.querySelectorAll('.dropdown-menu');
-        
+
         console.log(`Found ${menuItems.length} menu items`);
         console.log(`Found ${dropdownMenus.length} dropdown menus`);
-        
+
         // Menu item click handlers
         menuItems.forEach(item => {
             console.log(`Adding click handler to menu item: ${item.dataset.menu}`);
@@ -68,7 +68,7 @@ class WebDevStudio {
                 this.toggleDropdownMenu(menuType, item);
             });
         });
-        
+
         // Menu option click handlers
         dropdownMenus.forEach(menu => {
             menu.addEventListener('click', (e) => {
@@ -81,21 +81,21 @@ class WebDevStudio {
                 }
             });
         });
-        
+
         // Hide menus when clicking elsewhere
         document.addEventListener('click', () => {
             this.hideAllDropdownMenus();
         });
-        
+
         console.log('Menu system setup complete');
     }
-    
+
     toggleDropdownMenu(menuType, menuItem) {
         console.log(`toggleDropdownMenu called for: ${menuType}`);
-        
+
         const menu = document.getElementById(menuType + 'Menu');
         console.log(`Menu element found: ${!!menu}`);
-        
+
         if (!menu) {
             console.error(`Menu not found: ${menuType}Menu`);
             // Show visual feedback
@@ -106,21 +106,21 @@ class WebDevStudio {
             }
             return;
         }
-        
+
         // Hide all other menus
         this.hideAllDropdownMenus();
-        
+
         // Position and show the menu
         const rect = menuItem.getBoundingClientRect();
         menu.style.left = rect.left + 'px';
         menu.style.top = (rect.bottom + 1) + 'px';
         menu.classList.add('show');
-        
+
         // Update menu item state
         menuItem.classList.add('active');
-        
+
         console.log(`Menu ${menuType} shown at position: ${rect.left}, ${rect.bottom + 1}`);
-        
+
         // Visual feedback
         const debugInfo = document.getElementById('debugInfo');
         if (debugInfo) {
@@ -128,7 +128,7 @@ class WebDevStudio {
             setTimeout(() => debugInfo.textContent = '', 2000);
         }
     }
-    
+
     hideAllDropdownMenus() {
         document.querySelectorAll('.dropdown-menu').forEach(menu => {
             menu.classList.remove('show');
@@ -137,7 +137,7 @@ class WebDevStudio {
             item.classList.remove('active');
         });
     }
-    
+
     handleMenuAction(action) {
         switch (action) {
             case 'new':
@@ -205,79 +205,79 @@ class WebDevStudio {
                 break;
         }
     }
-    
+
     setupToolbar() {
         // New file button
         document.getElementById('newFileBtn').addEventListener('click', () => {
             window.codeEditor?.createNewFile();
         });
-        
+
         // Open file button
         document.getElementById('openFileBtn').addEventListener('click', () => {
             window.codeEditor?.openFileDialog();
         });
-          // Save file button
+        // Save file button
         document.getElementById('saveFileBtn').addEventListener('click', () => {
             window.codeEditor?.saveCurrentFile();
         });
-        
+
         // Import project button
         document.getElementById('importProjectBtn').addEventListener('click', () => {
             this.importProject();
         });
-        
+
         // Export project button
         document.getElementById('exportProjectBtn').addEventListener('click', () => {
             this.exportProject();
         });
-        
+
         // Undo button
         document.getElementById('undoBtn').addEventListener('click', () => {
             window.codeEditor?.undo();
         });
-        
+
         // Redo button
         document.getElementById('redoBtn').addEventListener('click', () => {
             window.codeEditor?.redo();
         });
-        
+
         // Preview button
         document.getElementById('previewBtn').addEventListener('click', () => {
             window.previewManager?.openPreview();
         });
-        
+
         // Run button
         document.getElementById('runBtn').addEventListener('click', () => {
             window.previewManager?.openPreview();
         });
-        
+
         // Diagnostic button
         document.getElementById('diagnosticBtn').addEventListener('click', () => {
             this.runDiagnostic();
         });
-        
+
         console.log('Toolbar setup complete');
     }
-    
+
     setupPanelResizing() {
         console.log('Setting up panel resizing...');
-        
+
         const leftResizer = document.querySelector('.left-resizer');
         const rightResizer = document.querySelector('.right-resizer');
-        
+
         console.log(`Left resizer found: ${!!leftResizer}`);
         console.log(`Right resizer found: ${!!rightResizer}`);
-        
+
         if (leftResizer) {
             console.log('Setting up left resizer');
             this.setupResizer(leftResizer, 'left');
         }
-        
+
         if (rightResizer) {
             console.log('Setting up right resizer');
             this.setupResizer(rightResizer, 'right');
         }
-        
+
         // Panel collapse buttons
         document.querySelectorAll('.panel-collapse').forEach(btn => {
             console.log(`Adding collapse handler for panel: ${btn.dataset.panel}`);
@@ -287,50 +287,50 @@ class WebDevStudio {
                 this.togglePanel(panelSide);
             });
         });
-        
+
         console.log('Panel resizing setup complete');
     }
-    
+
     setupResizer(resizer, side) {
         let isResizing = false;
         let startX = 0;
         let startWidth = 0;
-        
+
         resizer.addEventListener('mousedown', (e) => {
             isResizing = true;
             startX = e.clientX;
-            
+
             const panel = document.getElementById(side + 'Panel');
             startWidth = parseInt(getComputedStyle(panel).width);
-            
+
             resizer.classList.add('resizing');
             document.body.style.cursor = 'col-resize';
             document.body.style.userSelect = 'none';
-            
+
             e.preventDefault();
         });
-        
+
         document.addEventListener('mousemove', (e) => {
             if (!isResizing) return;
-            
+
             const panel = document.getElementById(side + 'Panel');
             const deltaX = side === 'left' ? e.clientX - startX : startX - e.clientX;
             const newWidth = Math.max(200, Math.min(800, startWidth + deltaX));
-            
+
             panel.style.width = newWidth + 'px';
             this.panels[side].width = newWidth;
         });
-        
+
         document.addEventListener('mouseup', () => {
             if (isResizing) {
                 isResizing = false;
                 resizer.classList.remove('resizing');
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
-                
+
                 // Save panel width
                 this.savePanelStates();
-                
+
                 // Refresh editor
                 setTimeout(() => {
                     window.codeEditor?.refresh();
@@ -338,11 +338,11 @@ class WebDevStudio {
             }
         });
     }
-    
+
     togglePanel(side) {
         const panel = document.getElementById(side + 'Panel');
         const isCollapsed = panel.classList.contains('collapsed');
-        
+
         if (isCollapsed) {
             panel.classList.remove('collapsed');
             panel.style.width = this.panels[side].width + 'px';
@@ -351,7 +351,7 @@ class WebDevStudio {
             panel.classList.add('collapsed');
             this.panels[side].collapsed = true;
         }
-        
+
         // Update collapse button icon
         const collapseBtn = panel.querySelector('.panel-collapse i');
         if (collapseBtn) {
@@ -361,14 +361,14 @@ class WebDevStudio {
                 collapseBtn.className = isCollapsed ? 'fas fa-chevron-right' : 'fas fa-chevron-left';
             }
         }
-        
+
         // Save state and refresh editor
         this.savePanelStates();
         setTimeout(() => {
             window.codeEditor?.refresh();
         }, 300);
     }
-    
+
     setupKeyboardShortcuts() {
         document.addEventListener('keydown', (e) => {
             // Prevent default browser shortcuts that conflict with our app
@@ -378,7 +378,7 @@ class WebDevStudio {
                         if (!e.shiftKey) {
                             e.preventDefault();
                             window.codeEditor?.createNewFile();
-                        }                        break;
+                        } break;
                     case 's':
                         e.preventDefault();
                         window.codeEditor?.saveCurrentFile();
@@ -428,7 +428,7 @@ class WebDevStudio {
                         break;
                 }
             }
-            
+
             // Function keys
             if (e.key === 'F11') {
                 e.preventDefault();
@@ -436,7 +436,7 @@ class WebDevStudio {
             }
         });
     }
-    
+
     setupMobileInterface() {
         // Add mobile menu toggle button for small screens
         const menubarLeft = document.querySelector('.menubar-left');
@@ -444,9 +444,9 @@ class WebDevStudio {
         mobileToggle.className = 'mobile-menu-toggle';
         mobileToggle.innerHTML = '<i class="fas fa-bars"></i>';
         mobileToggle.style.display = 'none';
-        
+
         menubarLeft.insertBefore(mobileToggle, menubarLeft.firstChild);
-        
+
         // Create mobile menu
         const mobileMenu = document.createElement('div');
         mobileMenu.className = 'mobile-menu';
@@ -487,20 +487,20 @@ class WebDevStudio {
                 <span>Preview</span>
             </div>
         `;
-        
+
         document.body.appendChild(mobileMenu);
-        
+
         // Mobile menu toggle
         mobileToggle.addEventListener('click', () => {
             mobileMenu.classList.toggle('show');
         });
-        
+
         // Mobile menu item clicks
         mobileMenu.addEventListener('click', (e) => {
             const item = e.target.closest('.mobile-menu-item');
             if (item) {
                 const action = item.dataset.action;
-                
+
                 if (action === 'preview') {
                     window.previewManager?.openPreview();
                 } else if (action === 'toggle-left-panel') {
@@ -510,39 +510,63 @@ class WebDevStudio {
                 } else {
                     this.handleMenuAction(action);
                 }
-                
+
                 mobileMenu.classList.remove('show');
             }
         });
-        
+
         // Hide mobile menu when clicking elsewhere
         document.addEventListener('click', (e) => {
             if (!mobileToggle.contains(e.target) && !mobileMenu.contains(e.target)) {
                 mobileMenu.classList.remove('show');
             }
         });
-        
+
         // Panel overlay for mobile
         const panelOverlay = document.createElement('div');
         panelOverlay.className = 'panel-overlay';
         document.body.appendChild(panelOverlay);
-        
+
         panelOverlay.addEventListener('click', () => {
             this.hideMobilePanels();
         });
-        
+
+        // Handle viewport height changes (for mobile browsers)
+        const setViewportHeight = () => {
+            const vh = window.innerHeight * 0.01;
+            document.documentElement.style.setProperty('--vh', `${vh}px`);
+        };
+
+        setViewportHeight();
+        window.addEventListener('resize', setViewportHeight);
+        window.addEventListener('orientationchange', () => {
+            setTimeout(setViewportHeight, 100);
+        });
+
+        // Prevent zoom on input focus (Android)
+        if (/Android/.test(navigator.userAgent)) {
+            const inputs = document.querySelectorAll('input, textarea, select');
+            inputs.forEach(input => {
+                input.addEventListener('focus', () => {
+                    if (parseFloat(getComputedStyle(input).fontSize) < 16) {
+                        input.style.fontSize = '16px';
+                    }
+                });
+            });
+        }
+
         // Responsive behavior
         this.handleResponsiveLayout();
         window.addEventListener('resize', () => {
             this.handleResponsiveLayout();
         });
     }
-    
+
     handleResponsiveLayout() {
         const isMobile = window.innerWidth <= 768;
         const mobileToggle = document.querySelector('.mobile-menu-toggle');
         const menuItems = document.querySelectorAll('.menubar-left .menu-item');
-        
+
         if (isMobile) {
             mobileToggle.style.display = 'block';
             menuItems.forEach(item => item.style.display = 'none');
@@ -557,30 +581,30 @@ class WebDevStudio {
         const modal = document.getElementById('settingsModal');
         modal.classList.add('show');
         document.body.style.overflow = 'hidden';
-        
+
         // Switch to the specified tab
         document.querySelectorAll('.settings-tab').forEach(tab => tab.classList.remove('active'));
         document.querySelectorAll('.settings-panel').forEach(panel => panel.classList.remove('active'));
-        
+
         const targetTab = document.querySelector(`[data-tab="${activeTab}"]`);
         const targetPanel = document.getElementById(`${activeTab}Settings`);
-        
+
         if (targetTab && targetPanel) {
             targetTab.classList.add('active');
             targetPanel.classList.add('active');
         }
     }
-    
+
     toggleMobilePanel(side) {
         const panel = document.getElementById(side + 'Panel');
         const overlay = document.querySelector('.panel-overlay');
         const isShowing = panel.classList.contains('show');
-        
+
         // Hide other panel first
         const otherSide = side === 'left' ? 'right' : 'left';
         const otherPanel = document.getElementById(otherSide + 'Panel');
         otherPanel.classList.remove('show');
-        
+
         if (isShowing) {
             panel.classList.remove('show');
             overlay.classList.remove('show');
@@ -589,14 +613,14 @@ class WebDevStudio {
             overlay.classList.add('show');
         }
     }
-    
+
     hideMobilePanels() {
         document.querySelectorAll('.panel').forEach(panel => {
             panel.classList.remove('show');
         });
         document.querySelector('.panel-overlay').classList.remove('show');
     }
-    
+
     savePanelStates() {
         const states = {
             left: {
@@ -610,26 +634,26 @@ class WebDevStudio {
         };
         localStorage.setItem('webdev-studio-panels', JSON.stringify(states));
     }
-    
+
     loadPanelStates() {
         const saved = localStorage.getItem('webdev-studio-panels');
         if (saved) {
             try {
                 const states = JSON.parse(saved);
-                
+
                 Object.keys(states).forEach(side => {
                     const panel = document.getElementById(side + 'Panel');
                     const state = states[side];
-                    
+
                     if (state.width) {
                         panel.style.width = state.width + 'px';
                         this.panels[side].width = state.width;
                     }
-                    
+
                     if (state.collapsed) {
                         panel.classList.add('collapsed');
                         this.panels[side].collapsed = true;
-                        
+
                         // Update collapse button icon
                         const collapseBtn = panel.querySelector('.panel-collapse i');
                         if (collapseBtn) {
@@ -637,13 +661,13 @@ class WebDevStudio {
                         }
                     }
                 });
-                
+
             } catch (error) {
                 console.warn('Failed to load panel states:', error);
             }
         }
     }
-    
+
     toggleFullscreen() {
         if (document.fullscreenElement) {
             document.exitFullscreen();
@@ -651,50 +675,50 @@ class WebDevStudio {
             document.documentElement.requestFullscreen();
         }
     }
-    
+
     toggleZenMode() {
         document.body.classList.toggle('zen-mode');
-        
+
         if (document.body.classList.contains('zen-mode')) {
             this.showNotification('Zen mode enabled. Press Escape to exit.', 'info');
         }
-        
+
         // Refresh editor after mode change
         setTimeout(() => {
             window.codeEditor?.refresh();
         }, 100);
     }
-    
+
     saveFileAs() {
         const currentFile = window.codeEditor?.currentFile;
         if (!currentFile) {
             this.showNotification('No file is currently open', 'warning');
             return;
         }
-        
+
         const newName = prompt('Save as:', currentFile.path.split('/').pop());
         if (!newName) return;
-        
+
         const newPath = '/' + newName;
         const content = window.codeEditor.getValue();
-        
+
         const newFile = fileSystem.createFile(newPath, content);
         window.codeEditor.openFile(newFile);
-        
+
         this.showNotification(`File saved as ${newName}`, 'success');
     }
-    
+
     async exportProject() {
         try {
             const zipBlob = await fileSystem.exportProject();
-            
+
             // Create download link
             const url = URL.createObjectURL(zipBlob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `webdev-project-${new Date().toISOString().split('T')[0]}.zip`;
             a.click();
-            
+
             URL.revokeObjectURL(url);
             this.showNotification('Project exported as ZIP file', 'success');
         } catch (error) {
@@ -702,19 +726,19 @@ class WebDevStudio {
             this.showNotification('Failed to export project', 'error');
         }
     }
-    
+
     importProject() {
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.zip,.json';
-        
+
         input.onchange = async (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            
+
             try {
                 let success = false;
-                
+
                 if (file.name.endsWith('.zip')) {
                     // Import ZIP file
                     success = await window.fileSystem.importProject(file);
@@ -725,7 +749,7 @@ class WebDevStudio {
                         try {
                             const projectData = event.target.result;
                             success = await window.fileSystem.importProject(projectData);
-                            
+
                             if (success) {
                                 // Close all open tabs
                                 if (window.codeEditor) {
@@ -733,7 +757,7 @@ class WebDevStudio {
                                         window.codeEditor.closeTab(path);
                                     });
                                 }
-                                
+
                                 this.showNotification('Project imported successfully', 'success');
                             } else {
                                 throw new Error('Invalid project file format');
@@ -746,7 +770,7 @@ class WebDevStudio {
                     reader.readAsText(file);
                     return;
                 }
-                
+
                 if (success) {
                     // Close all open tabs
                     if (window.codeEditor) {
@@ -754,7 +778,7 @@ class WebDevStudio {
                             window.codeEditor.closeTab(path);
                         });
                     }
-                    
+
                     this.showNotification('Project imported successfully', 'success');
                 } else {
                     throw new Error('Failed to import project');
@@ -764,10 +788,10 @@ class WebDevStudio {
                 this.showNotification('Failed to import project: ' + error.message, 'error');
             }
         };
-        
+
         input.click();
     }
-    
+
     showAboutDialog() {
         const aboutContent = `
             <div style="text-align: center; padding: 20px;">
@@ -789,10 +813,10 @@ class WebDevStudio {
                 <p>Built with modern web technologies</p>
             </div>
         `;
-        
+
         this.showModal('About WebDev Studio', aboutContent);
     }
-    
+
     showShortcutsDialog() {
         const shortcutsContent = `
             <div style="padding: 20px;">
@@ -836,14 +860,14 @@ class WebDevStudio {
                 </div>
             </div>
         `;
-        
+
         this.showModal('Keyboard Shortcuts', shortcutsContent);
     }
-    
+
     openDocumentation() {
         window.open('https://github.com/your-username/webdev-studio/blob/main/README.md', '_blank');
     }
-    
+
     showModal(title, content) {
         const modalId = 'temp-modal-' + Date.now();
         const modal = document.createElement('div');
@@ -862,10 +886,10 @@ class WebDevStudio {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
         modal.classList.add('show');
-        
+
         // Close on backdrop click
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
@@ -873,39 +897,39 @@ class WebDevStudio {
             }
         });
     }
-    
+
     showWelcomeMessage() {
         const debugInfo = document.getElementById('debugInfo');
         if (debugInfo) {
             debugInfo.textContent = 'WebDev Studio Loaded';
         }
-        
+
         console.log('WebDev Studio initialized and welcome message shown');
-        
+
         // Check component states
         const components = ['fileSystem', 'codeEditor', 'fileExplorer', 'settingsManager', 'previewManager'];
         const componentStatus = components.map(comp => `${comp}: ${!!window[comp]}`).join(' | ');
         console.log('Component status:', componentStatus);
-        
+
         // Check if elements exist
         const menuItems = document.querySelectorAll('.menu-item').length;
         const resizers = document.querySelectorAll('.panel-resizer').length;
         const fileTree = document.getElementById('fileTree');
-        
+
         console.log(`Elements: ${menuItems} menu items, ${resizers} resizers, fileTree: ${!!fileTree}`);
-        
+
         if (debugInfo) {
             debugInfo.textContent += ` | Components: ${components.filter(c => window[c]).length}/${components.length}`;
         }
     }
-    
+
     runDiagnostic() {
         console.log('=== WebDev Studio Diagnostic ===');
-        
+
         // Check if all components are loaded
         const components = [
             'fileSystem',
-            'codeEditor', 
+            'codeEditor',
             'fileExplorer',
             'settingsManager',
             'previewManager',
@@ -964,21 +988,21 @@ class WebDevStudio {
         }
 
         console.log('=== End Diagnostic ===');
-        
+
         // Test menu functionality
         this.testMenuFunctionality();
     }
-    
+
     testMenuFunctionality() {
         console.log('Testing menu functionality...');
-        
+
         const testMenu = (menuName) => {
             const menuItem = document.querySelector(`[data-menu="${menuName}"]`);
             if (menuItem) {
                 console.log(`Testing ${menuName} menu...`);
                 // Simulate click
                 menuItem.click();
-                
+
                 setTimeout(() => {
                     const dropdown = document.getElementById(menuName + 'Menu');
                     if (dropdown && dropdown.classList.contains('show')) {
@@ -1000,7 +1024,7 @@ class WebDevStudio {
         setTimeout(() => testMenu('view'), 500);
         setTimeout(() => testMenu('help'), 700);
     }
-    
+
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');
         notification.className = `app-notification ${type}`;
@@ -1008,7 +1032,7 @@ class WebDevStudio {
             <span>${message}</span>
             <button onclick="this.parentElement.remove()" class="notification-close">×</button>
         `;
-        
+
         notification.style.cssText = `
             position: fixed;
             top: 20px;
@@ -1026,9 +1050,9 @@ class WebDevStudio {
             max-width: 350px;
             word-wrap: break-word;
         `;
-        
+
         document.body.appendChild(notification);
-        
+
         setTimeout(() => {
             if (notification.parentElement) {
                 notification.style.animation = 'slideOutRight 0.3s ease';
@@ -1036,7 +1060,7 @@ class WebDevStudio {
             }
         }, 5000);
     }
-    
+
     showErrorMessage(message) {
         this.showNotification(message, 'error');
     }
@@ -1133,7 +1157,7 @@ window.addEventListener('beforeunload', (e) => {
     if (window.codeEditor && window.codeEditor.tabs) {
         const hasUnsavedChanges = Array.from(window.codeEditor.tabs.values())
             .some(tab => tab.modified);
-        
+
         if (hasUnsavedChanges) {
             const message = 'You have unsaved changes. Are you sure you want to leave?';
             e.returnValue = message;
@@ -1156,15 +1180,22 @@ if (window.settingsManager?.getSetting('general', 'autoSave', true)) {
 
 // Create global ChatGPT assistant instance after DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    // Create ChatGPT instance
-    window.chatGPT = new ChatGPTAssistant();
+    // Initialize core components first - but don't create SettingsManager here
+    // since it's already created in settings.js
     
-    // Ensure settings manager can update dropdown after ChatGPT is ready
+    // Wait a bit for settings to load, then initialize other components
     setTimeout(() => {
-        if (window.settingsManager && window.settingsManager.updateModelDropdown) {
-            window.settingsManager.updateModelDropdown();
+        // Initialize other components that depend on settings
+        window.codeEditor = new CodeEditor();
+        window.fileExplorer = new FileExplorer();
+        window.chatGPT = new ChatGPTAssistant();
+        window.googleDriveManager = new GoogleDriveManager();
+        
+        // Apply initial settings if settingsManager exists
+        if (window.settingsManager) {
+            window.settingsManager.applySettings();
         }
-    }, 1000);
+    }, 100);
 });
 
 console.log('WebDev Studio main script loaded');
