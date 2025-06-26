@@ -54,8 +54,14 @@ class FileExplorer {
                 // Open file
                 this.selectFile(fileItem.dataset.path);
                 const file = window.fileSystem.readFile(fileItem.dataset.path);
-                if (file && window.codeEditor) {
-                    window.codeEditor.openFile(file);
+                if (file) {
+                    // Try to handle as media file first
+                    if (!this.handleMediaFileOpen(file)) {
+                        // If not a media file, open in code editor
+                        if (window.codeEditor) {
+                            window.codeEditor.openFile(file);
+                        }
+                    }
                 }
             } else if (folderItem) {
                 // Select folder
@@ -1197,6 +1203,258 @@ class FileExplorer {
         });
     }
 
+    isMediaFile(filePath) {
+        const extension = filePath.split('.').pop()?.toLowerCase();
+        const imageExtensions = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+        const audioExtensions = ['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac'];
+        const videoExtensions = ['mp4', 'webm', 'ogg', 'avi', 'mov', 'wmv', 'flv'];
+
+        return {
+            isImage: imageExtensions.includes(extension),
+            isAudio: audioExtensions.includes(extension),
+            isVideo: videoExtensions.includes(extension),
+            isMedia: [...imageExtensions, ...audioExtensions, ...videoExtensions].includes(extension)
+        };
+    }
+
+    handleMediaFileOpen(file) {
+        const mediaInfo = this.isMediaFile(file.path);
+
+        if (mediaInfo.isMedia) {
+            // Hide the welcome screen and code editor
+            document.getElementById('welcomeScreen').style.display = 'none';
+            document.getElementById('editorWrapper').style.display = 'none';
+
+            // Show media viewer
+            this.showMediaViewer(file, mediaInfo);
+
+            // Update the tab in code editor for consistency
+            if (window.codeEditor) {
+                window.codeEditor.openFile(file);
+            }
+
+            return true; // Indicate that we handled this file
+        }
+
+        return false; // Let the regular editor handle it
+    }
+
+    showMediaViewer(file, mediaInfo) {
+        // Remove existing media viewer
+        const existingViewer = document.getElementById('mediaViewer');
+        if (existingViewer) {
+            existingViewer.remove();
+        }
+
+        // Create media viewer container
+        const mediaViewer = document.createElement('div');
+        mediaViewer.id = 'mediaViewer';
+        mediaViewer.className = 'media-viewer';
+
+        if (mediaInfo.isImage) {
+            mediaViewer.innerHTML = this.createImageViewer(file);
+        } else if (mediaInfo.isAudio) {
+            mediaViewer.innerHTML = this.createAudioPlayer(file);
+        } else if (mediaInfo.isVideo) {
+            mediaViewer.innerHTML = this.createVideoPlayer(file);
+        }
+
+        // Insert after the editor wrapper
+        const editorContainer = document.querySelector('.editor-container .editor-area');
+        editorContainer.appendChild(mediaViewer);
+
+        // Setup media viewer event listeners
+        this.setupMediaViewerEvents(mediaViewer, mediaInfo);
+    }
+
+    createImageViewer(file) {
+        return `
+        <div class="image-viewer">
+            <div class="image-viewer-header">
+                <div class="image-info">
+                    <h3><i class="fas fa-image"></i> ${file.name}</h3>
+                    <span class="file-path">${file.path}</span>
+                </div>
+                <div class="image-controls">
+                    <button class="btn-icon" id="zoomOut" title="Zoom Out">
+                        <i class="fas fa-search-minus"></i>
+                    </button>
+                    <span class="zoom-level">100%</span>
+                    <button class="btn-icon" id="zoomIn" title="Zoom In">
+                        <i class="fas fa-search-plus"></i>
+                    </button>
+                    <button class="btn-icon" id="resetZoom" title="Reset Zoom">
+                        <i class="fas fa-expand-arrows-alt"></i>
+                    </button>
+                    <button class="btn-icon" id="fullscreenImage" title="Fullscreen">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="image-container">
+                <img src="${file.content}" alt="${file.name}" class="preview-image" draggable="false">
+            </div>
+            <div class="image-viewer-footer">
+                <div class="image-details">
+                    <span class="detail-item">Size: <span id="imageSize">Loading...</span></span>
+                    <span class="detail-item">Type: ${file.path.split('.').pop()?.toUpperCase()}</span>
+                </div>
+            </div>
+        </div>
+    `;
+    }
+
+    createAudioPlayer(file) {
+        return `
+        <div class="audio-player">
+            <div class="audio-player-header">
+                <div class="audio-info">
+                    <h3><i class="fas fa-music"></i> ${file.name}</h3>
+                    <span class="file-path">${file.path}</span>
+                </div>
+            </div>
+            <div class="audio-container">
+                <audio controls class="audio-element">
+                    <source src="${file.content}" type="audio/${file.path.split('.').pop()}">
+                    Your browser does not support the audio element.
+                </audio>
+                <div class="audio-visualizer">
+                    <div class="audio-cover">
+                        <i class="fas fa-music"></i>
+                    </div>
+                    <div class="audio-details">
+                        <div class="track-name">${file.name}</div>
+                        <div class="track-info">Audio File</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    }
+
+    createVideoPlayer(file) {
+        return `
+        <div class="video-player">
+            <div class="video-player-header">
+                <div class="video-info">
+                    <h3><i class="fas fa-video"></i> ${file.name}</h3>
+                    <span class="file-path">${file.path}</span>
+                </div>
+                <div class="video-controls">
+                    <button class="btn-icon" id="fullscreenVideo" title="Fullscreen">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="video-container">
+                <video controls class="video-element">
+                    <source src="${file.content}" type="video/${file.path.split('.').pop()}">
+                    Your browser does not support the video element.
+                </video>
+            </div>
+            <div class="video-player-footer">
+                <div class="video-details">
+                    <span class="detail-item">Type: ${file.path.split('.').pop()?.toUpperCase()}</span>
+                    <span class="detail-item">Duration: <span id="videoDuration">--:--</span></span>
+                </div>
+            </div>
+        </div>
+    `;
+    }
+
+    setupMediaViewerEvents(mediaViewer, mediaInfo) {
+        if (mediaInfo.isImage) {
+            this.setupImageViewerEvents(mediaViewer);
+        } else if (mediaInfo.isVideo) {
+            this.setupVideoPlayerEvents(mediaViewer);
+        }
+    }
+
+    setupImageViewerEvents(mediaViewer) {
+        const image = mediaViewer.querySelector('.preview-image');
+        const zoomInBtn = mediaViewer.querySelector('#zoomIn');
+        const zoomOutBtn = mediaViewer.querySelector('#zoomOut');
+        const resetZoomBtn = mediaViewer.querySelector('#resetZoom');
+        const fullscreenBtn = mediaViewer.querySelector('#fullscreenImage');
+        const zoomLevelSpan = mediaViewer.querySelector('.zoom-level');
+
+        let zoomLevel = 1;
+        const zoomStep = 0.25;
+        const maxZoom = 5;
+        const minZoom = 0.1;
+
+        const updateZoom = () => {
+            image.style.transform = `scale(${zoomLevel})`;
+            zoomLevelSpan.textContent = `${Math.round(zoomLevel * 100)}%`;
+        };
+
+        // Get image dimensions
+        image.onload = () => {
+            const imageSizeSpan = mediaViewer.querySelector('#imageSize');
+            if (imageSizeSpan) {
+                imageSizeSpan.textContent = `${image.naturalWidth} × ${image.naturalHeight}`;
+            }
+        };
+
+        zoomInBtn.addEventListener('click', () => {
+            if (zoomLevel < maxZoom) {
+                zoomLevel += zoomStep;
+                updateZoom();
+            }
+        });
+
+        zoomOutBtn.addEventListener('click', () => {
+            if (zoomLevel > minZoom) {
+                zoomLevel -= zoomStep;
+                updateZoom();
+            }
+        });
+
+        resetZoomBtn.addEventListener('click', () => {
+            zoomLevel = 1;
+            updateZoom();
+        });
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (image.requestFullscreen) {
+                image.requestFullscreen();
+            }
+        });
+
+        // Mouse wheel zoom
+        const imageContainer = mediaViewer.querySelector('.image-container');
+        imageContainer.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY < 0 ? zoomStep : -zoomStep;
+            const newZoom = Math.max(minZoom, Math.min(maxZoom, zoomLevel + delta));
+            if (newZoom !== zoomLevel) {
+                zoomLevel = newZoom;
+                updateZoom();
+            }
+        });
+    }
+
+    setupVideoPlayerEvents(mediaViewer) {
+        const video = mediaViewer.querySelector('.video-element');
+        const fullscreenBtn = mediaViewer.querySelector('#fullscreenVideo');
+        const durationSpan = mediaViewer.querySelector('#videoDuration');
+
+        video.addEventListener('loadedmetadata', () => {
+            if (durationSpan) {
+                const duration = video.duration;
+                const minutes = Math.floor(duration / 60);
+                const seconds = Math.floor(duration % 60);
+                durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        });
+
+        fullscreenBtn.addEventListener('click', () => {
+            if (video.requestFullscreen) {
+                video.requestFullscreen();
+            }
+        });
+    }
+
     showLoadingModal(message, totalFiles = 1) {
         // Remove existing modal if any
         this.hideLoadingModal();
@@ -1973,6 +2231,233 @@ const loadingModalCSS = `
     .file-explorer-actions button:active,
     .empty-state-actions button:active {
         animation: buttonPress 0.1s ease-in-out;
+    }
+
+    /* Media Viewer Styles */
+    .media-viewer {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+        background: var(--primary-bg);
+    }
+
+    /* Image Viewer */
+    .image-viewer {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .image-viewer-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--spacing-md);
+        background: var(--secondary-bg);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .image-info h3 {
+        margin: 0;
+        font-size: var(--font-size-md);
+        color: var(--text-primary);
+    }
+
+    .file-path {
+        font-size: var(--font-size-xs);
+        color: var(--text-secondary);
+    }
+
+    .image-controls {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+    }
+
+    .zoom-level {
+        font-size: var(--font-size-sm);
+        color: var(--text-primary);
+        min-width: 50px;
+        text-align: center;
+    }
+
+    .image-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: auto;
+        background: var(--tertiary-bg);
+        position: relative;
+    }
+
+    .preview-image {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        transition: transform 0.2s ease;
+        cursor: grab;
+    }
+
+    .preview-image:active {
+        cursor: grabbing;
+    }
+
+    .image-viewer-footer {
+        padding: var(--spacing-md);
+        background: var(--secondary-bg);
+        border-top: 1px solid var(--border-color);
+    }
+
+    .image-details {
+        display: flex;
+        gap: var(--spacing-lg);
+    }
+
+    .detail-item {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+    }
+
+    /* Audio Player */
+    .audio-player {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .audio-player-header {
+        padding: var(--spacing-md);
+        background: var(--secondary-bg);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .audio-info h3 {
+        margin: 0;
+        font-size: var(--font-size-md);
+        color: var(--text-primary);
+    }
+
+    .audio-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-xl);
+        background: var(--primary-bg);
+    }
+
+    .audio-element {
+        width: 100%;
+        max-width: 600px;
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .audio-visualizer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .audio-cover {
+        width: 200px;
+        height: 200px;
+        background: var(--accent-color);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: var(--spacing-lg);
+        box-shadow: var(--shadow-lg);
+    }
+
+    .audio-cover i {
+        font-size: 4rem;
+        color: white;
+    }
+
+    .track-name {
+        font-size: var(--font-size-lg);
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .track-info {
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+    }
+
+    /* Video Player */
+    .video-player {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .video-player-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: var(--spacing-md);
+        background: var(--secondary-bg);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .video-info h3 {
+        margin: 0;
+        font-size: var(--font-size-md);
+        color: var(--text-primary);
+    }
+
+    .video-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--tertiary-bg);
+        padding: var(--spacing-md);
+    }
+
+    .video-element {
+        width: 100%;
+        height: 100%;
+        max-height: 80vh;
+        object-fit: contain;
+    }
+
+    .video-player-footer {
+        padding: var(--spacing-md);
+        background: var(--secondary-bg);
+        border-top: 1px solid var(--border-color);
+    }
+
+    .video-details {
+        display: flex;
+        gap: var(--spacing-lg);
+    }
+
+    /* Mobile responsive */
+    @media (max-width: 768px) {
+        .image-controls {
+            gap: var(--spacing-xs);
+        }
+        
+        .audio-cover {
+            width: 150px;
+            height: 150px;
+        }
+        
+        .audio-cover i {
+            font-size: 3rem;
+        }
+        
+        .image-container,
+        .video-container {
+            padding: var(--spacing-sm);
+        }
     }
 `;
 
