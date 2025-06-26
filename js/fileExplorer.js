@@ -1316,10 +1316,10 @@ class FileExplorer {
             // Show media viewer with proper blob handling
             this.showMediaViewer(file, mediaInfo);
 
-            // Update the tab in code editor for consistency
-            if (window.codeEditor) {
-                window.codeEditor.openFile(file);
-            }
+            // **REMOVED: Don't update the tab in code editor for binary files**
+            // if (window.codeEditor) {
+            //     window.codeEditor.openFile(file);
+            // }
 
             return true; // Indicate that we handled this file
         }
