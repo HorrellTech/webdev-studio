@@ -140,6 +140,10 @@ class SettingsManager {
             this.updateSetting('ai', 'model', e.target.value);
             this.applyAISettings();
             this.updateModelInfoDisplay(e.target.value);
+            
+            if (window.chatGPT) {
+                window.chatGPT.updateSettings({ model: e.target.value });
+            }
         });
 
         document.getElementById('maxTokens').addEventListener('change', (e) => {

@@ -360,6 +360,10 @@ class ChatGPTAssistant {
     }
 
     async callOpenAI(messages, signal = null) {
+        // Add debug logging
+        console.log('🤖 Using model:', this.model);
+        console.log('🔑 API Key (first 10 chars):', this.apiKey?.substring(0, 10) + '...');
+    
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
