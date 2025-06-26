@@ -160,6 +160,16 @@ class CodeEditor {
             this.openFileDialog();
         });
     }
+
+    refresh() {
+        if (this.editor) {
+            // Force CodeMirror to recalculate its dimensions
+            setTimeout(() => {
+                this.editor.refresh();
+                this.editor.setSize(null, null); // Reset to auto size
+            }, 0);
+        }
+    }
     
     openFile(file) {
         // Clean up any existing media viewer when opening a new file in code editor
@@ -185,12 +195,11 @@ class CodeEditor {
         this.editor.setValue(file.content || '');
         this.setEditorMode(file.path);
         
-        // Hide welcome screen and show editor
-        document.getElementById('welcomeScreen').style.display = 'none';
-        document.getElementById('editorWrapper').style.display = 'block';
-        
-        // Focus editor
-        this.editor.focus();
+        // Focus editor and refresh to ensure proper layout
+        setTimeout(() => {
+            this.editor.focus();
+            this.editor.refresh();
+        }, 0);
         
         // Update status bar
         this.updateStatusBar();

@@ -160,17 +160,18 @@ body {
 
 /* Main Container */
 .main-container {
-  flex: 1;
   display: flex;
   overflow: hidden;
   height: calc(100vh - var(--header-height) - var(--toolbar-height) - var(--statusbar-height));
   height: calc(100dvh - var(--header-height) - var(--toolbar-height) - var(--statusbar-height));
   background: var(--primary-bg);
   color: var(--text-primary);
+  min-height: 0; /* Prevent flex items from growing beyond container */
 }
 
 /* Panels */
 .panel {
+  position: relative; /* Add this to make resizers position relative to panels */
   height: 100%;
   overflow: hidden;
   background: var(--secondary-bg);
@@ -179,6 +180,7 @@ body {
 
 .left-panel {
   width: 300px;
+  border-right: 1px solid var(--border-color); /* Add border for visual separation */
 }
 
 .right-panel {
@@ -228,9 +230,11 @@ body {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 4px;
+  width: 6px; /* Make slightly wider for easier grabbing */
   cursor: col-resize;
   z-index: 10;
+  background: transparent;
+  transition: background-color 0.2s ease;
 }
 
 .left-resizer {
@@ -241,9 +245,31 @@ body {
   left: -2px;
 }
 
+.left-panel .panel-resizer {
+  right: -3px; /* Center the resizer on the border */
+}
+
+.right-panel .panel-resizer {
+  left: -3px; /* Center the resizer on the border */
+}
+
 .panel-resizer:hover,
 .panel-resizer.resizing {
   background: var(--accent-color);
+}
+
+.panel-resizer::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 4px;
+  height: 40px;
+  background: var(--border-color);
+  border-radius: 2px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
 /* Editor Container */
@@ -252,6 +278,8 @@ body {
   display: flex;
   flex-direction: column;
   background: var(--primary-bg);
+  min-width: 0; /* Allow shrinking */
+  overflow: hidden;
 }
 
 /* Tab Bar */
@@ -333,13 +361,18 @@ body {
   overflow: hidden;
   background: var(--primary-bg);
   color: var(--text-primary);
+  position: relative; /* For absolute positioning of children */
 }
 
 .welcome-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
   background: var(--primary-bg);
 }
 
@@ -397,8 +430,11 @@ body {
 }
 
 .editor-wrapper {
-  height: 100%;
-  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   overflow: hidden;
   background: var(--editor-bg);
   color: var(--editor-text);
@@ -1676,8 +1712,14 @@ select option:focus {
 
 /* Ensure proper layering */
 .media-viewer {
-    position: relative;
-    z-index: 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--primary-bg);
 }
 
 #editorWrapper {
