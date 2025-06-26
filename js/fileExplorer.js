@@ -55,9 +55,19 @@ class FileExplorer {
                 this.selectFile(fileItem.dataset.path);
                 const file = window.fileSystem.readFile(fileItem.dataset.path);
                 if (file) {
+                    // Always clean up previous media viewer first
+                    this.cleanupMediaViewer();
+
                     // Try to handle as media file first
-                    if (!this.handleMediaFileOpen(file)) {
-                        // If not a media file, open in code editor
+                    const isMediaHandled = this.handleMediaFileOpen(file);
+
+                    // Only show code editor if it's NOT a media file
+                    if (!isMediaHandled) {
+                        // Hide welcome screen and show code editor for non-media files
+                        document.getElementById('welcomeScreen').style.display = 'none';
+                        document.getElementById('editorWrapper').style.display = 'block';
+
+                        // Open in code editor
                         if (window.codeEditor) {
                             window.codeEditor.openFile(file);
                         }
@@ -662,21 +672,54 @@ class FileExplorer {
     getFileIcon(fileName) {
         const extension = fileName.split('.').pop()?.toLowerCase();
         const iconMap = {
+            // Web files
             'html': 'fab fa-html5',
             'htm': 'fab fa-html5',
             'css': 'fab fa-css3-alt',
             'js': 'fab fa-js-square',
+            'ts': 'fab fa-js-square',
             'json': 'fas fa-code',
+            'xml': 'fas fa-code',
+
+            // Documents
             'md': 'fab fa-markdown',
             'txt': 'fas fa-file-alt',
-            'xml': 'fas fa-code',
-            'svg': 'fas fa-image',
-            'png': 'fas fa-image',
-            'jpg': 'fas fa-image',
-            'jpeg': 'fas fa-image',
-            'gif': 'fas fa-image',
             'pdf': 'fas fa-file-pdf',
-            'zip': 'fas fa-file-archive'
+            'doc': 'fas fa-file-word',
+            'docx': 'fas fa-file-word',
+
+            // Images
+            'png': 'fas fa-file-image',
+            'jpg': 'fas fa-file-image',
+            'jpeg': 'fas fa-file-image',
+            'gif': 'fas fa-file-image',
+            'svg': 'fas fa-file-image',
+            'webp': 'fas fa-file-image',
+            'bmp': 'fas fa-file-image',
+            'ico': 'fas fa-file-image',
+
+            // Audio
+            'mp3': 'fas fa-file-audio',
+            'wav': 'fas fa-file-audio',
+            'ogg': 'fas fa-file-audio',
+            'aac': 'fas fa-file-audio',
+            'm4a': 'fas fa-file-audio',
+            'flac': 'fas fa-file-audio',
+
+            // Video
+            'mp4': 'fas fa-file-video',
+            'webm': 'fas fa-file-video',
+            'avi': 'fas fa-file-video',
+            'mov': 'fas fa-file-video',
+            'wmv': 'fas fa-file-video',
+            'flv': 'fas fa-file-video',
+
+            // Archives
+            'zip': 'fas fa-file-archive',
+            'rar': 'fas fa-file-archive',
+            '7z': 'fas fa-file-archive',
+            'tar': 'fas fa-file-archive',
+            'gz': 'fas fa-file-archive'
         };
 
         return iconMap[extension] || 'fas fa-file';
@@ -807,9 +850,25 @@ class FileExplorer {
     handleContextMenuAction(action, path) {
         switch (action) {
             case 'open':
+                // Clean up any existing media viewer first
+                this.cleanupMediaViewer();
+
                 const file = window.fileSystem.readFile(path);
-                if (file && window.codeEditor) {
-                    window.codeEditor.openFile(file);
+                if (file) {
+                    // Try to handle as media file first
+                    const isMediaHandled = this.handleMediaFileOpen(file);
+                    
+                    // Only show code editor if it's NOT a media file
+                    if (!isMediaHandled) {
+                        // Hide welcome screen and show code editor for non-media files
+                        document.getElementById('welcomeScreen').style.display = 'none';
+                        document.getElementById('editorWrapper').style.display = 'block';
+
+                        // Open in code editor
+                        if (window.codeEditor) {
+                            window.codeEditor.openFile(file);
+                        }
+                    }
                 }
                 break;
             case 'new-file':
@@ -1050,57 +1109,82 @@ class FileExplorer {
                 counter++;
             }
 
+            // Check file size and handle large files differently
+            const isLargeFile = file.size > 50 * 1024 * 1024; // 50MB
+            const isVideoFile = this.isMediaFile(filePath).isVideo;
+
+            // For large video files, show warning and use blob storage
+            if (isLargeFile && isVideoFile) {
+                const proceed = confirm(
+                    `"${file.name}" is a large video file (${this.formatFileSize(file.size)}). ` +
+                    'Large video files may cause performance issues. Continue importing?'
+                );
+
+                if (!proceed) {
+                    resolve();
+                    return;
+                }
+            }
+
             // Check if it's a binary file
             if (window.fileSystem.isBinaryFile(filePath)) {
-                // Read as data URL for binary files
-                const reader = new FileReader();
-
-                reader.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                        const percentComplete = (event.loaded / event.total) * 100;
-                        this.updateLoadingModal(
-                            `Reading "${file.name}" (${currentIndex}/${totalFiles}) - ${Math.round(percentComplete)}%`,
-                            currentIndex,
-                            totalFiles,
-                            percentComplete
-                        );
-                    }
-                };
-
-                reader.onload = (event) => {
-                    const content = event.target.result; // This is a data URL
-                    window.fileSystem.createFile(filePath, content);
-                    resolve();
-                };
-
-                reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
-                reader.readAsDataURL(file);
+                // Use different strategies based on file size
+                if (isLargeFile) {
+                    this.importLargeBinaryFile(file, filePath, currentIndex, totalFiles, resolve, reject);
+                } else {
+                    this.importRegularBinaryFile(file, filePath, currentIndex, totalFiles, resolve, reject);
+                }
             } else {
-                // Read as text for text files
-                const reader = new FileReader();
-
-                reader.onprogress = (event) => {
-                    if (event.lengthComputable) {
-                        const percentComplete = (event.loaded / event.total) * 100;
-                        this.updateLoadingModal(
-                            `Reading "${file.name}" (${currentIndex}/${totalFiles}) - ${Math.round(percentComplete)}%`,
-                            currentIndex,
-                            totalFiles,
-                            percentComplete
-                        );
-                    }
-                };
-
-                reader.onload = (event) => {
-                    const content = event.target.result;
-                    window.fileSystem.createFile(filePath, content);
-                    resolve();
-                };
-
-                reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
-                reader.readAsText(file);
+                // Text files
+                this.importTextFile(file, filePath, currentIndex, totalFiles, resolve, reject);
             }
         });
+    }
+
+    importLargeBinaryFile(file, filePath, currentIndex, totalFiles, resolve, reject) {
+        // For large files, store a reference instead of the full data
+        const fileRef = {
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            lastModified: file.lastModified,
+            isLargeFile: true,
+            // Store the File object reference (this won't persist across sessions)
+            fileObject: file
+        };
+
+        try {
+            // Create a placeholder entry in the file system
+            window.fileSystem.createFile(filePath, `data:application/x-large-file,${JSON.stringify(fileRef)}`);
+            resolve();
+        } catch (error) {
+            reject(error);
+        }
+    }
+
+    importRegularBinaryFile(file, filePath, currentIndex, totalFiles, resolve, reject) {
+        const reader = new FileReader();
+
+        reader.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100;
+                this.updateLoadingModal(
+                    `Reading "${file.name}" (${currentIndex}/${totalFiles}) - ${Math.round(percentComplete)}%`,
+                    currentIndex,
+                    totalFiles,
+                    percentComplete
+                );
+            }
+        };
+
+        reader.onload = (event) => {
+            const content = event.target.result; // This is a data URL
+            window.fileSystem.createFile(filePath, content);
+            resolve();
+        };
+
+        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+        reader.readAsDataURL(file);
     }
 
     uploadFiles() {
@@ -1213,7 +1297,8 @@ class FileExplorer {
             isImage: imageExtensions.includes(extension),
             isAudio: audioExtensions.includes(extension),
             isVideo: videoExtensions.includes(extension),
-            isMedia: [...imageExtensions, ...audioExtensions, ...videoExtensions].includes(extension)
+            isMedia: [...imageExtensions, ...audioExtensions, ...videoExtensions].includes(extension),
+            extension: extension
         };
     }
 
@@ -1221,11 +1306,14 @@ class FileExplorer {
         const mediaInfo = this.isMediaFile(file.path);
 
         if (mediaInfo.isMedia) {
+            // Clean up any existing media viewer first
+            this.cleanupMediaViewer();
+
             // Hide the welcome screen and code editor
             document.getElementById('welcomeScreen').style.display = 'none';
             document.getElementById('editorWrapper').style.display = 'none';
 
-            // Show media viewer
+            // Show media viewer with proper blob handling
             this.showMediaViewer(file, mediaInfo);
 
             // Update the tab in code editor for consistency
@@ -1251,12 +1339,15 @@ class FileExplorer {
         mediaViewer.id = 'mediaViewer';
         mediaViewer.className = 'media-viewer';
 
+        // Create blob URL for better performance with large files
+        const blobUrl = this.createBlobUrl(file, mediaInfo);
+
         if (mediaInfo.isImage) {
-            mediaViewer.innerHTML = this.createImageViewer(file);
+            mediaViewer.innerHTML = this.createImageViewer(file, blobUrl);
         } else if (mediaInfo.isAudio) {
-            mediaViewer.innerHTML = this.createAudioPlayer(file);
+            mediaViewer.innerHTML = this.createAudioPlayer(file, blobUrl);
         } else if (mediaInfo.isVideo) {
-            mediaViewer.innerHTML = this.createVideoPlayer(file);
+            mediaViewer.innerHTML = this.createVideoPlayer(file, blobUrl);
         }
 
         // Insert after the editor wrapper
@@ -1264,10 +1355,119 @@ class FileExplorer {
         editorContainer.appendChild(mediaViewer);
 
         // Setup media viewer event listeners
-        this.setupMediaViewerEvents(mediaViewer, mediaInfo);
+        this.setupMediaViewerEvents(mediaViewer, mediaInfo, blobUrl);
     }
 
-    createImageViewer(file) {
+    createBlobUrl(file, mediaInfo) {
+        try {
+            // Check if this is a large file reference
+            if (file.content.startsWith('data:application/x-large-file,')) {
+                const fileRef = JSON.parse(file.content.substring('data:application/x-large-file,'.length));
+                if (fileRef.fileObject && fileRef.fileObject instanceof File) {
+                    return URL.createObjectURL(fileRef.fileObject);
+                } else {
+                    throw new Error('Large file reference is no longer available');
+                }
+            }
+
+            // If the content is already a data URL, use it directly for small files
+            if (file.content.startsWith('data:')) {
+                // For large video files, convert data URL to blob for better performance
+                if (mediaInfo.isVideo && file.content.length > 5 * 1024 * 1024) { // > 5MB
+                    return this.dataUrlToBlob(file.content);
+                }
+                return file.content;
+            }
+
+            // If it's text content, create a blob
+            const mimeType = this.getMimeType(mediaInfo.extension);
+            const blob = new Blob([file.content], { type: mimeType });
+            return URL.createObjectURL(blob);
+        } catch (error) {
+            console.error('Error creating blob URL:', error);
+            // Show error in media viewer
+            return 'data:text/plain,Error: Could not load media file. The file may be too large or no longer available.';
+        }
+    }
+
+    importTextFile(file, filePath, currentIndex, totalFiles, resolve, reject) {
+        const reader = new FileReader();
+
+        reader.onprogress = (event) => {
+            if (event.lengthComputable) {
+                const percentComplete = (event.loaded / event.total) * 100;
+                this.updateLoadingModal(
+                    `Reading "${file.name}" (${currentIndex}/${totalFiles}) - ${Math.round(percentComplete)}%`,
+                    currentIndex,
+                    totalFiles,
+                    percentComplete
+                );
+            }
+        };
+
+        reader.onload = (event) => {
+            const content = event.target.result;
+            window.fileSystem.createFile(filePath, content);
+            resolve();
+        };
+
+        reader.onerror = () => reject(new Error(`Failed to read ${file.name}`));
+        reader.readAsText(file);
+    }
+
+    getMimeType(extension) {
+        const mimeTypes = {
+            // Images
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'gif': 'image/gif',
+            'svg': 'image/svg+xml',
+            'webp': 'image/webp',
+            'bmp': 'image/bmp',
+            'ico': 'image/x-icon',
+
+            // Audio
+            'mp3': 'audio/mpeg',
+            'wav': 'audio/wav',
+            'ogg': 'audio/ogg',
+            'aac': 'audio/aac',
+            'm4a': 'audio/mp4',
+            'flac': 'audio/flac',
+
+            // Video
+            'mp4': 'video/mp4',
+            'webm': 'video/webm',
+            'avi': 'video/x-msvideo',
+            'mov': 'video/quicktime',
+            'wmv': 'video/x-ms-wmv',
+            'flv': 'video/x-flv'
+        };
+
+        return mimeTypes[extension] || 'application/octet-stream';
+    }
+
+    dataUrlToBlob(dataUrl) {
+        try {
+            const arr = dataUrl.split(',');
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+
+            while (n--) {
+                u8arr[n] = bstr.charCodeAt(n);
+            }
+
+            const blob = new Blob([u8arr], { type: mime });
+            return URL.createObjectURL(blob);
+        } catch (error) {
+            console.error('Error converting data URL to blob:', error);
+            return dataUrl; // Fallback to original data URL
+        }
+    }
+
+    createImageViewer(file, blobUrl) {
         return `
         <div class="image-viewer">
             <div class="image-viewer-header">
@@ -1292,19 +1492,21 @@ class FileExplorer {
                 </div>
             </div>
             <div class="image-container">
-                <img src="${file.content}" alt="${file.name}" class="preview-image" draggable="false">
+                <img src="${blobUrl}" alt="${file.name}" class="preview-image" draggable="false">
             </div>
             <div class="image-viewer-footer">
                 <div class="image-details">
                     <span class="detail-item">Size: <span id="imageSize">Loading...</span></span>
                     <span class="detail-item">Type: ${file.path.split('.').pop()?.toUpperCase()}</span>
+                    <span class="detail-item">File Size: ${this.formatFileSize(file.size || 0)}</span>
                 </div>
             </div>
         </div>
     `;
     }
 
-    createAudioPlayer(file) {
+    // Update the createAudioPlayer method
+    createAudioPlayer(file, blobUrl) {
         return `
         <div class="audio-player">
             <div class="audio-player-header">
@@ -1314,8 +1516,12 @@ class FileExplorer {
                 </div>
             </div>
             <div class="audio-container">
-                <audio controls class="audio-element">
-                    <source src="${file.content}" type="audio/${file.path.split('.').pop()}">
+                <div class="audio-loading" id="audioLoading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading audio...</p>
+                </div>
+                <audio controls class="audio-element" style="display: none;" preload="metadata">
+                    <source src="${blobUrl}" type="${this.getMimeType(file.path.split('.').pop()?.toLowerCase())}">
                     Your browser does not support the audio element.
                 </audio>
                 <div class="audio-visualizer">
@@ -1324,7 +1530,7 @@ class FileExplorer {
                     </div>
                     <div class="audio-details">
                         <div class="track-name">${file.name}</div>
-                        <div class="track-info">Audio File</div>
+                        <div class="track-info">Audio File • ${this.formatFileSize(file.size || 0)}</div>
                     </div>
                 </div>
             </div>
@@ -1332,7 +1538,8 @@ class FileExplorer {
     `;
     }
 
-    createVideoPlayer(file) {
+    // Update the createVideoPlayer method with loading state
+    createVideoPlayer(file, blobUrl) {
         return `
         <div class="video-player">
             <div class="video-player-header">
@@ -1347,8 +1554,13 @@ class FileExplorer {
                 </div>
             </div>
             <div class="video-container">
-                <video controls class="video-element">
-                    <source src="${file.content}" type="video/${file.path.split('.').pop()}">
+                <div class="video-loading" id="videoLoading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Loading video...</p>
+                    <small>This may take a moment for large files</small>
+                </div>
+                <video controls class="video-element" style="display: none;" preload="metadata">
+                    <source src="${blobUrl}" type="${this.getMimeType(file.path.split('.').pop()?.toLowerCase())}">
                     Your browser does not support the video element.
                 </video>
             </div>
@@ -1356,18 +1568,24 @@ class FileExplorer {
                 <div class="video-details">
                     <span class="detail-item">Type: ${file.path.split('.').pop()?.toUpperCase()}</span>
                     <span class="detail-item">Duration: <span id="videoDuration">--:--</span></span>
+                    <span class="detail-item">File Size: ${this.formatFileSize(file.size || 0)}</span>
                 </div>
             </div>
         </div>
     `;
     }
 
-    setupMediaViewerEvents(mediaViewer, mediaInfo) {
+    setupMediaViewerEvents(mediaViewer, mediaInfo, blobUrl) {
         if (mediaInfo.isImage) {
             this.setupImageViewerEvents(mediaViewer);
+        } else if (mediaInfo.isAudio) {
+            this.setupAudioPlayerEvents(mediaViewer, blobUrl);
         } else if (mediaInfo.isVideo) {
-            this.setupVideoPlayerEvents(mediaViewer);
+            this.setupVideoPlayerEvents(mediaViewer, blobUrl);
         }
+
+        // Clean up blob URL when media viewer is removed
+        this.setupCleanupEvents(mediaViewer, blobUrl);
     }
 
     setupImageViewerEvents(mediaViewer) {
@@ -1434,25 +1652,127 @@ class FileExplorer {
         });
     }
 
-    setupVideoPlayerEvents(mediaViewer) {
+    setupAudioPlayerEvents(mediaViewer, blobUrl) {
+        const audio = mediaViewer.querySelector('.audio-element');
+        const audioLoading = mediaViewer.querySelector('#audioLoading');
+
+        // Show audio player when ready
+        audio.addEventListener('canplay', () => {
+            audioLoading.style.display = 'none';
+            audio.style.display = 'block';
+        });
+
+        // Handle loading errors
+        audio.addEventListener('error', (e) => {
+            console.error('Audio loading error:', e);
+            audioLoading.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>Error loading audio file</p>
+            <small>The file may be corrupted or in an unsupported format</small>
+        `;
+        });
+    }
+
+    setupVideoPlayerEvents(mediaViewer, blobUrl) {
         const video = mediaViewer.querySelector('.video-element');
+        const videoLoading = mediaViewer.querySelector('#videoLoading');
         const fullscreenBtn = mediaViewer.querySelector('#fullscreenVideo');
         const durationSpan = mediaViewer.querySelector('#videoDuration');
 
+        // Show video player when ready
+        video.addEventListener('canplay', () => {
+            videoLoading.style.display = 'none';
+            video.style.display = 'block';
+        });
+
+        // Handle metadata loading
         video.addEventListener('loadedmetadata', () => {
             if (durationSpan) {
                 const duration = video.duration;
-                const minutes = Math.floor(duration / 60);
-                const seconds = Math.floor(duration % 60);
-                durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                if (isFinite(duration)) {
+                    const minutes = Math.floor(duration / 60);
+                    const seconds = Math.floor(duration % 60);
+                    durationSpan.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }
             }
         });
 
-        fullscreenBtn.addEventListener('click', () => {
-            if (video.requestFullscreen) {
-                video.requestFullscreen();
+        // Handle loading errors
+        video.addEventListener('error', (e) => {
+            console.error('Video loading error:', e);
+            videoLoading.innerHTML = `
+            <i class="fas fa-exclamation-triangle"></i>
+            <p>Error loading video file</p>
+            <small>The file may be too large, corrupted, or in an unsupported format</small>
+        `;
+        });
+
+        // Handle loading progress
+        video.addEventListener('progress', () => {
+            if (video.buffered.length > 0) {
+                const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+                const duration = video.duration;
+                if (duration > 0) {
+                    const bufferedPercent = (bufferedEnd / duration) * 100;
+                    // You could show buffering progress here if needed
+                }
             }
         });
+
+        // Fullscreen functionality
+        if (fullscreenBtn) {
+            fullscreenBtn.addEventListener('click', () => {
+                if (video.requestFullscreen) {
+                    video.requestFullscreen();
+                } else if (video.webkitRequestFullscreen) {
+                    video.webkitRequestFullscreen();
+                } else if (video.msRequestFullscreen) {
+                    video.msRequestFullscreen();
+                }
+            });
+        }
+    }
+
+    setupCleanupEvents(mediaViewer, blobUrl) {
+        // Clean up blob URL when media viewer is destroyed
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                mutation.removedNodes.forEach((node) => {
+                    if (node === mediaViewer && blobUrl && blobUrl.startsWith('blob:')) {
+                        URL.revokeObjectURL(blobUrl);
+                    }
+                });
+            });
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        // Store observer reference for cleanup
+        mediaViewer._blobObserver = observer;
+        mediaViewer._blobUrl = blobUrl;
+    }
+
+    cleanupMediaViewer() {
+        const existingViewer = document.getElementById('mediaViewer');
+        if (existingViewer) {
+            // Clean up blob URL
+            if (existingViewer._blobUrl && existingViewer._blobUrl.startsWith('blob:')) {
+                URL.revokeObjectURL(existingViewer._blobUrl);
+            }
+
+            // Clean up observer
+            if (existingViewer._blobObserver) {
+                existingViewer._blobObserver.disconnect();
+            }
+
+            // Remove the viewer
+            existingViewer.remove();
+
+            // Force garbage collection hint
+            if (window.gc) {
+                window.gc();
+            }
+        }
     }
 
     showLoadingModal(message, totalFiles = 1) {
@@ -2458,6 +2778,188 @@ const loadingModalCSS = `
         .video-container {
             padding: var(--spacing-sm);
         }
+    }
+
+    /* Loading States */
+    .video-loading,
+    .audio-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 200px;
+        color: var(--text-secondary);
+        text-align: center;
+    }
+
+    .video-loading i,
+    .audio-loading i {
+        font-size: 2rem;
+        margin-bottom: var(--spacing-md);
+        color: var(--accent-color);
+    }
+
+    .video-loading p,
+    .audio-loading p {
+        font-size: var(--font-size-md);
+        margin-bottom: var(--spacing-sm);
+        color: var(--text-primary);
+    }
+
+    .video-loading small,
+    .audio-loading small {
+        font-size: var(--font-size-xs);
+        color: var(--text-tertiary);
+        opacity: 0.8;
+    }
+
+    /* Error States */
+    .video-loading .fa-exclamation-triangle,
+    .audio-loading .fa-exclamation-triangle {
+        color: var(--warning-color);
+    }
+
+    /* Enhanced Video Container */
+    .video-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        padding: var(--spacing-md);
+        position: relative;
+        min-height: 400px;
+    }
+
+    /* Enhanced Audio Container */
+    .audio-container {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: var(--spacing-xl);
+        background: var(--primary-bg);
+        min-height: 300px;
+    }
+
+    /* Video Element Improvements */
+    .video-element {
+        width: 100%;
+        height: 100%;
+        max-height: 80vh;
+        object-fit: contain;
+        background: #000;
+    }
+
+    /* Audio Element Improvements */
+    .audio-element {
+        width: 100%;
+        max-width: 600px;
+        margin-bottom: var(--spacing-lg);
+        border-radius: var(--border-radius);
+    }
+
+    /* Loading Animation */
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .fa-spinner {
+        animation: spin 1s linear infinite;
+    }
+
+    /* Media Viewer Performance Improvements */
+    .media-viewer {
+        will-change: transform;
+        contain: layout style paint;
+    }
+
+    .image-container {
+        will-change: transform;
+        contain: layout style paint;
+    }
+
+    .video-container,
+    .audio-container {
+        will-change: transform;
+        contain: layout style paint;
+    }
+
+    /* Mobile optimizations */
+    @media (max-width: 768px) {
+        .video-container {
+            min-height: 250px;
+            padding: var(--spacing-sm);
+        }
+        
+        .audio-container {
+            min-height: 200px;
+            padding: var(--spacing-md);
+        }
+        
+        .audio-cover {
+            width: 120px;
+            height: 120px;
+        }
+        
+        .audio-cover i {
+            font-size: 2.5rem;
+        }
+        
+        .video-loading,
+        .audio-loading {
+            min-height: 150px;
+        }
+        
+        .video-loading i,
+        .audio-loading i {
+            font-size: 1.5rem;
+        }
+    }
+
+    /* High performance mode for large files */
+    .media-viewer.large-file {
+        transform: translateZ(0);
+        backface-visibility: hidden;
+    }
+
+    .media-viewer.large-file .video-element {
+        transform: translateZ(0);
+        backface-visibility: hidden;
+    }
+
+    /* Memory usage indicator */
+    .memory-warning {
+        position: absolute;
+        top: var(--spacing-sm);
+        right: var(--spacing-sm);
+        background: var(--warning-color);
+        color: white;
+        padding: var(--spacing-xs) var(--spacing-sm);
+        border-radius: var(--border-radius);
+        font-size: var(--font-size-xs);
+        font-weight: 600;
+        z-index: 10;
+    }
+
+    /* Buffer progress indicator for videos */
+    .buffer-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.3);
+        overflow: hidden;
+    }
+
+    .buffer-progress-bar {
+        height: 100%;
+        background: var(--accent-color);
+        width: 0%;
+        transition: width 0.3s ease;
     }
 `;
 

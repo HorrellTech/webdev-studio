@@ -1647,3 +1647,29 @@ select option:focus {
   width: 1px;
   background: linear-gradient(to bottom, var(--border-color) 0%, transparent 100%);
 }
+
+/* Smooth transitions between views */
+#editorWrapper,
+#welcomeScreen,
+#mediaViewer {
+    transition: opacity 0.2s ease-in-out;
+}
+
+/* Ensure proper layering */
+.media-viewer {
+    position: relative;
+    z-index: 1;
+}
+
+#editorWrapper {
+    position: relative;
+    z-index: 2;
+}
+
+/* Force hardware acceleration for smooth transitions */
+.media-viewer,
+#editorWrapper,
+#welcomeScreen {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}

@@ -162,6 +162,15 @@ class CodeEditor {
     }
     
     openFile(file) {
+        // Clean up any existing media viewer when opening a new file in code editor
+        if (window.fileExplorer) {
+            window.fileExplorer.cleanupMediaViewer();
+        }
+        
+        // Show the code editor interface
+        document.getElementById('welcomeScreen').style.display = 'none';
+        document.getElementById('editorWrapper').style.display = 'block';
+        
         if (!file) return;
         
         // Create or switch to tab
