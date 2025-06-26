@@ -4,7 +4,7 @@ class ChatGPTAssistant {
     constructor() {
         this.apiKey = '';
         this.model = 'gpt-3.5-turbo';
-        this.maxTokens = 2000;
+        this.maxTokens = 6000;
         this.messages = [];
         this.isTyping = false;
 
@@ -15,6 +15,29 @@ class ChatGPTAssistant {
 
         // Add file references tracking
         this.referencedFiles = new Set();
+        
+        // Add model-specific token limits
+        this.modelLimits = {
+            'gpt-3.5-turbo': { context: 4096, maxTokens: 4000 },
+            'gpt-3.5-turbo-16k': { context: 16384, maxTokens: 8000 },
+            'gpt-3.5-turbo-1106': { context: 4096, maxTokens: 4000 },
+            'gpt-3.5-turbo-0125': { context: 4096, maxTokens: 4000 },
+            'gpt-4': { context: 8192, maxTokens: 4000 },
+            'gpt-4-32k': { context: 32768, maxTokens: 8000 },
+            'gpt-4-turbo': { context: 128000, maxTokens: 4000 },
+            'gpt-4-turbo-preview': { context: 128000, maxTokens: 4000 },
+            'gpt-4-1106-preview': { context: 128000, maxTokens: 4000 },
+            'gpt-4-0125-preview': { context: 128000, maxTokens: 4000 },
+            'gpt-4o': { context: 128000, maxTokens: 4000 },
+            'gpt-4o-mini': { context: 128000, maxTokens: 16000 },
+            'gpt-4o-2024-05-13': { context: 128000, maxTokens: 4000 },
+            'gpt-4o-2024-08-06': { context: 128000, maxTokens: 4000 },
+            'gpt-4-vision-preview': { context: 128000, maxTokens: 4000 },
+            'gpt-4-code-interpreter': { context: 8192, maxTokens: 4000 },
+            'text-davinci-003': { context: 4096, maxTokens: 4000 },
+            'code-davinci-002': { context: 8192, maxTokens: 4000 },
+            'gpt-4.1': { context: 32768, maxTokens: 4000 }
+        };
 
         // Add available models list
         this.availableModels = [
@@ -202,7 +225,7 @@ class ChatGPTAssistant {
         const settings = JSON.parse(localStorage.getItem('webdev-studio-ai-settings') || '{}');
         this.apiKey = settings.apiKey || '';
         this.model = settings.model || 'gpt-3.5-turbo';
-        this.maxTokens = settings.maxTokens || 2000;
+        this.maxTokens = settings.maxTokens || 6000;
 
         // Add debug logging to see what's being loaded
         console.log('🔧 Loading AI settings:', {
@@ -446,33 +469,80 @@ class ChatGPTAssistant {
         return context;
     }
 
+    estimateTokens(text) {
+        // Rough estimation: ~4 characters = 1 token for English text
+        // Code tends to be more token-dense, so we use 3 characters = 1 token
+        return Math.ceil(text.length / 3);
+    }
+
+    truncateContent(content, maxTokens, label = "content") {
+        const estimatedTokens = this.estimateTokens(content);
+        
+        if (estimatedTokens <= maxTokens) {
+            return content;
+        }
+
+        // Calculate how much content we can keep
+        const maxChars = maxTokens * 3;
+        const truncatedContent = content.substring(0, maxChars);
+        
+        return `${truncatedContent}\n\n... (${label} truncated - showing first ${maxTokens} tokens of ${estimatedTokens} total tokens)`;
+    }
+
     enhanceMessageWithContext(message, context) {
         let enhancedMessage = message;
         const contextParts = [];
+        
+        // Get current model limits
+        const modelLimit = this.modelLimits[this.model] || this.modelLimits['gpt-3.5-turbo'];
+        const maxContextTokens = Math.floor(modelLimit.context * 0.7); // Use 70% of context for input
+        
+        // Estimate tokens for the base message
+        let totalTokens = this.estimateTokens(message);
+        const remainingTokens = maxContextTokens - totalTokens - 500; // Reserve 500 tokens for system prompt and overhead
+        
+        console.log(`📊 Token Budget: ${maxContextTokens} max, ${totalTokens} used by message, ${remainingTokens} available for context`);
+
+        if (remainingTokens <= 0) {
+            console.warn('⚠️ Message too long, no room for context');
+            return enhancedMessage;
+        }
+
+        // Distribute tokens among context sources
+        let tokensPerSource = remainingTokens;
+        let sourceCount = 0;
+
+        // Count sources
+        if (context.selectedText) sourceCount = 1;
+        else if (context.currentFile) sourceCount = 1;
+        if (context.referencedFiles?.length > 0) sourceCount += context.referencedFiles.length;
+
+        if (sourceCount > 0) {
+            tokensPerSource = Math.floor(remainingTokens / sourceCount);
+        }
+
+        console.log(`📊 Token allocation: ${tokensPerSource} tokens per source (${sourceCount} sources)`);
 
         // Add selected text context
         if (context.selectedText) {
             const { content, file, lineStart, lineEnd } = context.selectedText;
             const language = this.getFileLanguage(file.path);
+            const truncatedContent = this.truncateContent(content, tokensPerSource, `selected code from ${file.path}`);
 
-            contextParts.push(`**Selected code from ${file.path} (lines ${lineStart}-${lineEnd}):**\n\`\`\`${language}\n${content}\n\`\`\``);
+            contextParts.push(`**Selected code from ${file.path} (lines ${lineStart}-${lineEnd}):**\n\`\`\`${language}\n${truncatedContent}\n\`\`\``);
         }
         // Add current file context if no selection
         else if (context.currentFile) {
             const { path, content, language } = context.currentFile;
-            const truncatedContent = content.length > 2000 ?
-                content.substring(0, 2000) + '\n\n... (file truncated)' :
-                content;
+            const truncatedContent = this.truncateContent(content, tokensPerSource, `current file ${path}`);
 
             contextParts.push(`**Current file: ${path}**\n\`\`\`${language}\n${truncatedContent}\n\`\`\``);
         }
 
-        // Add referenced files
+        // Add referenced files with smart truncation
         if (context.referencedFiles && context.referencedFiles.length > 0) {
             context.referencedFiles.forEach(ref => {
-                const truncatedContent = ref.content.length > 1000 ?
-                    ref.content.substring(0, 1000) + '\n\n... (file truncated)' :
-                    ref.content;
+                const truncatedContent = this.truncateContent(ref.content, tokensPerSource, `referenced file ${ref.path}`);
 
                 contextParts.push(`**Referenced file: ${ref.path}**\n\`\`\`${ref.language}\n${truncatedContent}\n\`\`\``);
             });
@@ -480,7 +550,22 @@ class ChatGPTAssistant {
 
         // Combine message with context
         if (contextParts.length > 0) {
-            enhancedMessage = `${message}\n\n---\n\n${contextParts.join('\n\n')}`;
+            const contextText = contextParts.join('\n\n');
+            const finalTokenCount = this.estimateTokens(message + contextText);
+            
+            console.log(`📊 Final message: ${finalTokenCount} tokens (limit: ${maxContextTokens})`);
+            
+            if (finalTokenCount > maxContextTokens) {
+                console.warn('⚠️ Final message still too long, truncating context further');
+                // Emergency truncation - reduce each context part
+                const emergencyTokens = Math.floor(tokensPerSource * 0.5);
+                const truncatedParts = contextParts.map(part => {
+                    return this.truncateContent(part, emergencyTokens, "context (emergency truncation)");
+                });
+                enhancedMessage = `${message}\n\n--- Context Information (Truncated) ---\n\n${truncatedParts.join('\n\n')}`;
+            } else {
+                enhancedMessage = `${message}\n\n--- Context Information ---\n\n${contextText}`;
+            }
         }
 
         return enhancedMessage;
