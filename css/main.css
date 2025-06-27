@@ -166,7 +166,8 @@ body {
   height: calc(100dvh - var(--header-height) - var(--toolbar-height) - var(--statusbar-height));
   background: var(--primary-bg);
   color: var(--text-primary);
-  min-height: 0; /* Prevent flex items from growing beyond container */
+  min-height: 0;
+  width: 100%; /* Ensure full width */
 }
 
 /* Panels */
