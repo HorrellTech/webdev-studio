@@ -1188,7 +1188,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize other components that depend on settings
         window.codeEditor = new CodeEditor();
         window.fileExplorer = new FileExplorer();
-        window.chatGPT = new ChatGPTAssistant();
+        // Replace the problematic line with:
+        setTimeout(() => {
+            if (typeof ChatGPTAssistant !== 'undefined' && !window.chatGPT) {
+                window.chatGPT = new ChatGPTAssistant();
+            }
+        }, 100);
         window.googleDriveManager = new GoogleDriveManager();
         
         // Apply initial settings if settingsManager exists

@@ -656,15 +656,20 @@ class SettingsManager {
     }
 
     saveAISettings() {
-        const formData = {
-            apiKey: document.getElementById('ai-api-key').value,
-            model: document.getElementById('ai-model-select').value,
-            maxTokens: parseInt(document.getElementById('ai-max-tokens').value)
-        };
+        const aiProvider = document.getElementById('aiProvider')?.value;
+        const geminiApiKey = document.getElementById('geminiApiKey')?.value;
+        const geminiModel = document.getElementById('geminiModel')?.value;
+        const openaiApiKey = document.getElementById('openaiApiKey')?.value;
+        const openaiModel = document.getElementById('aiModel')?.value;
         
-        // Update the ChatGPT instance
         if (window.chatGPT) {
-            window.chatGPT.updateSettings(formData);
+            window.chatGPT.updateSettings({
+                aiProvider,
+                geminiApiKey,
+                geminiModel,
+                apiKey: openaiApiKey,
+                model: openaiModel
+            });
         }
     }
 

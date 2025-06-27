@@ -19,7 +19,7 @@ class ChatGPTAssistant {
 
         // Add file references tracking
         this.referencedFiles = new Set();
-        
+
         // Add model-specific token limits
         this.modelLimits = {
             'gpt-3.5-turbo': { context: 4096, maxTokens: 4000 },
@@ -94,6 +94,11 @@ class ChatGPTAssistant {
         // Setup event listeners
         this.setupEventListeners();
 
+        // Setup API event listeners (delayed to ensure DOM is ready)
+        setTimeout(() => {
+            this.setupAPIEventListeners();
+        }, 100);
+
         // Update model dropdown with error handling
         try {
             if (window.settingsManager && typeof window.settingsManager.updateModelDropdown === 'function') {
@@ -105,10 +110,15 @@ class ChatGPTAssistant {
 
         // Update UI based on API key availability
         this.updateUI();
-        
+
         // Update file references UI
         this.updateFileReferencesUI();
-        
+
+        // IMPORTANT: Load settings into form after a short delay to ensure DOM is ready
+        setTimeout(() => {
+            this.loadSettingsIntoForm();
+        }, 100);
+
         // Update settings dropdown with available models
         if (window.settingsManager) {
             window.settingsManager.updateModelDropdown();
@@ -124,7 +134,7 @@ class ChatGPTAssistant {
             this.addSystemMessage(`${this.getProviderName()} Assistant is ready! Ask me anything about your code.`);
             this.updateModelInfo();
         }
-        
+
         this.clearChat();
     }
 
@@ -235,36 +245,115 @@ class ChatGPTAssistant {
         }
     }
 
+    loadSettingsIntoForm() {
+        // Load settings into form elements
+        const elements = {
+            aiProvider: document.getElementById('aiProvider'),
+            geminiApiKey: document.getElementById('geminiApiKey'),
+            geminiModel: document.getElementById('geminiModel'),
+            openaiApiKey: document.getElementById('openaiApiKey'),
+            aiModel: document.getElementById('aiModel')
+        };
+
+        if (elements.aiProvider) elements.aiProvider.value = this.aiProvider || 'gemini';
+        if (elements.geminiApiKey) elements.geminiApiKey.value = this.geminiApiKey || '';
+        if (elements.geminiModel) elements.geminiModel.value = this.geminiModel || 'gemini-2.0-flash';
+        if (elements.openaiApiKey) elements.openaiApiKey.value = this.apiKey || '';
+        if (elements.aiModel) elements.aiModel.value = this.model || 'gpt-3.5-turbo';
+    }
+
+    setupAPIEventListeners() {
+        // Gemini settings handlers - FIXED VERSION
+        const geminiApiKeyInput = document.getElementById('geminiApiKey');
+        const geminiModelSelect = document.getElementById('geminiModel');
+
+        if(geminiApiKeyInput) {
+            // Use both 'input' and 'change' events for immediate feedback
+            geminiApiKeyInput.addEventListener('input', function () {
+                if (window.chatGPT) {
+                    window.chatGPT.updateSettings({ geminiApiKey: this.value });
+                    console.log('🔑 Gemini API key updated:', this.value ? '***' + this.value.slice(-4) : 'empty');
+                }
+            });
+
+            geminiApiKeyInput.addEventListener('change', function () {
+                if (window.chatGPT) {
+                    window.chatGPT.updateSettings({ geminiApiKey: this.value });
+                }
+            });
+        }
+
+        if(geminiModelSelect) {
+            geminiModelSelect.addEventListener('change', function () {
+                if (window.chatGPT) {
+                    window.chatGPT.updateSettings({ geminiModel: this.value });
+                    console.log('🤖 Gemini model updated:', this.value);
+                }
+            });
+        }
+
+        // Also handle OpenAI settings for completeness
+        const openaiApiKeyInput = document.getElementById('openaiApiKey');
+        const openaiModelSelect = document.getElementById('aiModel');
+
+        if(openaiApiKeyInput) {
+            openaiApiKeyInput.addEventListener('input', function () {
+                if (window.chatGPT) {
+                    window.chatGPT.updateSettings({ apiKey: this.value });
+                }
+            });
+        }
+
+        if(openaiModelSelect) {
+            openaiModelSelect.addEventListener('change', function () {
+                if (window.chatGPT) {
+                    window.chatGPT.updateSettings({ model: this.value });
+                }
+            });
+        }
+    }
+
     loadSettings() {
         const saved = localStorage.getItem('webdev-studio-ai-settings');
+        console.log('📖 Loading AI settings from localStorage:', saved ? 'found' : 'not found');
+
         if (saved) {
             try {
                 const settings = JSON.parse(saved);
-                
+                console.log('📖 Parsed settings:', {
+                    provider: settings.aiProvider,
+                    geminiKey: settings.geminiApiKey ? '***' + settings.geminiApiKey.slice(-4) : 'none',
+                    geminiModel: settings.geminiModel,
+                    openaiKey: settings.apiKey ? '***' + settings.apiKey.slice(-4) : 'none',
+                    openaiModel: settings.model
+                });
+
                 // Load provider settings
                 this.aiProvider = settings.aiProvider || 'gemini';
-                
+
                 // Load OpenAI settings
                 if (settings.apiKey) this.apiKey = settings.apiKey;
                 if (settings.model) this.model = settings.model;
                 if (settings.maxTokens) this.maxTokens = settings.maxTokens;
-                
+
                 // Load Gemini settings
                 if (settings.geminiApiKey) this.geminiApiKey = settings.geminiApiKey;
                 if (settings.geminiModel) this.geminiModel = settings.geminiModel;
-                
+
                 // Load other settings
                 if (settings.messageHistory) this.messageHistory = settings.messageHistory;
                 if (settings.referencedFiles) this.referencedFiles = new Set(settings.referencedFiles);
-                
-                console.log('🔄 AI settings loaded:', {
+
+                console.log('✅ AI settings loaded successfully:', {
                     provider: this.aiProvider,
                     model: this.getCurrentModel(),
                     hasApiKey: !!this.getCurrentApiKey()
                 });
             } catch (error) {
-                console.error('Error loading AI settings:', error);
+                console.error('❌ Error loading AI settings:', error);
             }
+        } else {
+            console.log('📝 No saved AI settings found, using defaults');
         }
     }
 
@@ -304,18 +393,30 @@ class ChatGPTAssistant {
             messageHistory: this.messageHistory,
             referencedFiles: Array.from(this.referencedFiles)
         };
-        localStorage.setItem('webdev-studio-ai-settings', JSON.stringify(settings));
+
+        try {
+            localStorage.setItem('webdev-studio-ai-settings', JSON.stringify(settings));
+            console.log('💾 AI settings saved successfully:', {
+                provider: settings.aiProvider,
+                geminiKey: settings.geminiApiKey ? '***' + settings.geminiApiKey.slice(-4) : 'none',
+                geminiModel: settings.geminiModel,
+                openaiKey: settings.apiKey ? '***' + settings.apiKey.slice(-4) : 'none',
+                openaiModel: settings.model
+            });
+        } catch (error) {
+            console.error('❌ Failed to save AI settings:', error);
+        }
     }
 
     updateSettings(newSettings) {
         console.log('🔄 Updating AI settings:', newSettings);
-        
+
         // Update provider
         if (newSettings.aiProvider !== undefined) {
             this.aiProvider = newSettings.aiProvider;
             this.updatePanelTitle();
         }
-        
+
         // Update OpenAI settings
         if (newSettings.apiKey !== undefined) {
             this.apiKey = newSettings.apiKey;
@@ -326,7 +427,7 @@ class ChatGPTAssistant {
         if (newSettings.maxTokens !== undefined) {
             this.maxTokens = newSettings.maxTokens;
         }
-        
+
         // Update Gemini settings
         if (newSettings.geminiApiKey !== undefined) {
             this.geminiApiKey = newSettings.geminiApiKey;
@@ -341,10 +442,16 @@ class ChatGPTAssistant {
             }
         }
 
+        // IMPORTANT: Save settings immediately after updating
         this.saveSettings();
         this.updateUI();
-        
+
         console.log('✅ AI settings updated. Current provider:', this.aiProvider, 'Model:', this.getCurrentModel());
+
+        // Also save to the global settings system if it exists
+        if (window.settingsManager && typeof window.settingsManager.saveSettings === 'function') {
+            window.settingsManager.saveSettings();
+        }
     }
 
     openSettings() {
@@ -424,9 +531,9 @@ class ChatGPTAssistant {
                     </div>
                     <div class="model-actions">
                         ${!isConfigured ?
-                            '<button class="setup-btn" onclick="chatGPT.showSetupInstructions()">Setup Guide</button>' :
-                            '<button class="settings-btn" onclick="chatGPT.openSettings()">⚙️</button>'
-                        }
+                    '<button class="setup-btn" onclick="chatGPT.showSetupInstructions()">Setup Guide</button>' :
+                    '<button class="settings-btn" onclick="chatGPT.openSettings()">⚙️</button>'
+                }
                     </div>
                 </div>
             `;
@@ -436,9 +543,9 @@ class ChatGPTAssistant {
     async sendMessage() {
         const chatInput = document.getElementById('chatInput');
         const message = chatInput.value.trim();
-        
+
         if (!message || this.isTyping) return;
-        
+
         const hasApiKey = this.getCurrentApiKey() && this.getCurrentApiKey().length > 0;
         if (!hasApiKey) {
             this.addErrorMessage(`Please configure your ${this.getProviderName()} API key in settings first.`);
@@ -482,9 +589,318 @@ class ChatGPTAssistant {
             if (error.name === 'AbortError' || error.message.includes('aborted')) {
                 this.addSystemMessage('Request canceled by user.');
             } else {
-                this.addErrorMessage(`Sorry, I encountered an error with ${this.getProviderName()}. Please check your API key and try again.`);
+                // Enhanced error handling with detailed toast notifications
+                this.handleAIError(error);
             }
         }
+    }
+
+    handleAIError(error) {
+        let errorTitle = `${this.getProviderName()} Error`;
+        let errorMessage = 'An unexpected error occurred. Please try again.';
+        let errorType = 'error';
+        let actionButton = null;
+
+        // Parse different types of errors
+        if (this.aiProvider === 'gemini') {
+            const errorInfo = this.parseGeminiError(error);
+            errorTitle = errorInfo.title;
+            errorMessage = errorInfo.message;
+            errorType = errorInfo.type;
+            actionButton = errorInfo.action;
+        } else {
+            const errorInfo = this.parseOpenAIError(error);
+            errorTitle = errorInfo.title;
+            errorMessage = errorInfo.message;
+            errorType = errorInfo.type;
+            actionButton = errorInfo.action;
+        }
+
+        // Show detailed toast notification
+        this.showDetailedNotification(errorTitle, errorMessage, errorType, actionButton);
+
+        // Also add a simplified error message to chat
+        this.addErrorMessage(`${errorTitle}: ${errorMessage}`);
+    }
+
+    parseOpenAIError(error) {
+        const errorData = error.message || error.toString();
+        
+        // Check for specific OpenAI error patterns
+        if (error.status === 401 || errorData.includes('401') || errorData.includes('Unauthorized')) {
+            return {
+                title: '🔑 Authentication Error',
+                message: 'Your OpenAI API key is invalid or missing. Please check your API key in settings.',
+                type: 'error',
+                action: {
+                    text: 'Open Settings',
+                    callback: () => this.openSettings()
+                }
+            };
+        }
+
+        if (error.status === 402 || errorData.includes('402') || errorData.includes('insufficient_quota')) {
+            return {
+                title: '💳 Insufficient Credits',
+                message: 'You have exceeded your OpenAI usage quota. Please add credits to your OpenAI account or upgrade your plan.',
+                type: 'warning',
+                action: {
+                    text: 'Check Billing',
+                    callback: () => window.open('https://platform.openai.com/account/billing', '_blank')
+                }
+            };
+        }
+
+        if (error.status === 429 || errorData.includes('429') || errorData.includes('rate_limit')) {
+            return {
+                title: '⏱️ Rate Limited',
+                message: 'Too many requests. Please wait a moment and try again. Consider upgrading your OpenAI plan for higher limits.',
+                type: 'warning',
+                action: {
+                    text: 'View Limits',
+                    callback: () => window.open('https://platform.openai.com/account/limits', '_blank')
+                }
+            };
+        }
+
+        if (error.status === 400 || errorData.includes('400') || errorData.includes('Bad Request')) {
+            return {
+                title: '📝 Invalid Request',
+                message: 'The request was malformed. This might be due to unsupported model or invalid parameters.',
+                type: 'error',
+                action: {
+                    text: 'Check Model',
+                    callback: () => this.openSettings()
+                }
+            };
+        }
+
+        if (error.status === 500 || errorData.includes('500') || errorData.includes('Internal Server Error')) {
+            return {
+                title: '🔧 Server Error',
+                message: 'OpenAI servers are experiencing issues. Please try again in a few minutes.',
+                type: 'error',
+                action: {
+                    text: 'Check Status',
+                    callback: () => window.open('https://status.openai.com/', '_blank')
+                }
+            };
+        }
+
+        if (error.status === 503 || errorData.includes('503') || errorData.includes('Service Unavailable')) {
+            return {
+                title: '🚫 Service Unavailable',
+                message: 'OpenAI service is temporarily unavailable. Please try again later.',
+                type: 'error',
+                action: {
+                    text: 'Check Status',
+                    callback: () => window.open('https://status.openai.com/', '_blank')
+                }
+            };
+        }
+
+        if (errorData.includes('context_length_exceeded')) {
+            return {
+                title: '📏 Message Too Long',
+                message: 'Your message exceeds the model\'s context limit. Try shortening your message or selecting less code.',
+                type: 'warning',
+                action: {
+                    text: 'View Tips',
+                    callback: () => this.showCostInfo()
+                }
+            };
+        }
+
+        if (errorData.includes('model_not_found')) {
+            return {
+                title: '🤖 Model Not Found',
+                message: 'The selected AI model is not available. Please choose a different model in settings.',
+                type: 'error',
+                action: {
+                    text: 'Change Model',
+                    callback: () => this.openSettings()
+                }
+            };
+        }
+
+        if (errorData.includes('network') || errorData.includes('fetch')) {
+            return {
+                title: '🌐 Network Error',
+                message: 'Unable to connect to OpenAI. Please check your internet connection and try again.',
+                type: 'error',
+                action: null
+            };
+        }
+
+        // Generic error
+        return {
+            title: '❌ Unknown Error',
+            message: `An unexpected error occurred: ${errorData.substring(0, 100)}...`,
+            type: 'error',
+            action: {
+                text: 'Contact Support',
+                callback: () => window.open('https://help.openai.com/', '_blank')
+            }
+        };
+    }
+
+    parseGeminiError(error) {
+        const errorData = error.message || error.toString();
+        
+        // Check for specific Gemini error patterns
+        if (error.status === 401 || errorData.includes('401') || errorData.includes('API_KEY_INVALID')) {
+            return {
+                title: '🔑 Invalid API Key',
+                message: 'Your Gemini API key is invalid or missing. Please check your API key in settings.',
+                type: 'error',
+                action: {
+                    text: 'Open Settings',
+                    callback: () => this.openSettings()
+                }
+            };
+        }
+
+        if (error.status === 429 || errorData.includes('429') || errorData.includes('RATE_LIMIT_EXCEEDED')) {
+            return {
+                title: '⏱️ Rate Limited',
+                message: 'Too many requests to Gemini API. Please wait a moment and try again.',
+                type: 'warning',
+                action: {
+                    text: 'View Quotas',
+                    callback: () => window.open('https://console.cloud.google.com/apis/api/generativelanguage.googleapis.com/quotas', '_blank')
+                }
+            };
+        }
+
+        if (error.status === 400 || errorData.includes('INVALID_ARGUMENT')) {
+            return {
+                title: '📝 Invalid Request',
+                message: 'The request was invalid. This might be due to unsupported content or model parameters.',
+                type: 'error',
+                action: {
+                    text: 'Check Model',
+                    callback: () => this.openSettings()
+                }
+            };
+        }
+
+        if (errorData.includes('SAFETY')) {
+            return {
+                title: '🛡️ Content Blocked',
+                message: 'Your message was blocked by Gemini\'s safety filters. Please rephrase your request.',
+                type: 'warning',
+                action: {
+                    text: 'Safety Guidelines',
+                    callback: () => window.open('https://ai.google.dev/docs/safety_guidance', '_blank')
+                }
+            };
+        }
+
+        if (error.status === 500 || errorData.includes('INTERNAL')) {
+            return {
+                title: '🔧 Server Error',
+                message: 'Gemini servers are experiencing issues. Please try again in a few minutes.',
+                type: 'error',
+                action: {
+                    text: 'Check Status',
+                    callback: () => window.open('https://status.cloud.google.com/', '_blank')
+                }
+            };
+        }
+
+        if (errorData.includes('QUOTA_EXCEEDED')) {
+            return {
+                title: '💳 Quota Exceeded',
+                message: 'You have exceeded your Gemini API quota. Please check your Google Cloud billing or wait for quota reset.',
+                type: 'warning',
+                action: {
+                    text: 'Check Billing',
+                    callback: () => window.open('https://console.cloud.google.com/billing', '_blank')
+                }
+            };
+        }
+
+        if (errorData.includes('network') || errorData.includes('fetch')) {
+            return {
+                title: '🌐 Network Error',
+                message: 'Unable to connect to Gemini API. Please check your internet connection and try again.',
+                type: 'error',
+                action: null
+            };
+        }
+
+        // Generic error
+        return {
+            title: '❌ Unknown Error',
+            message: `An unexpected error occurred: ${errorData.substring(0, 100)}...`,
+            type: 'error',
+            action: {
+                text: 'Help Center',
+                callback: () => window.open('https://ai.google.dev/support', '_blank')
+            }
+        };
+    }
+
+    showDetailedNotification(title, message, type = 'error', actionButton = null) {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `detailed-notification ${type}`;
+        notification.innerHTML = `
+            <div class="notification-header">
+                <div class="notification-icon">
+                    ${this.getNotificationIcon(type)}
+                </div>
+                <div class="notification-title">${title}</div>
+                <button class="notification-close" onclick="this.parentElement.parentElement.remove()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="notification-message">${message}</div>
+            ${actionButton ? `
+                <div class="notification-actions">
+                    <button class="notification-action-btn" onclick="(${actionButton.callback.toString()})(); this.parentElement.parentElement.remove();">
+                        ${actionButton.text}
+                    </button>
+                </div>
+            ` : ''}
+        `;
+
+        // Add to notification container or create one
+        let container = document.getElementById('notificationContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'notificationContainer';
+            container.className = 'notification-container';
+            document.body.appendChild(container);
+        }
+
+        container.appendChild(notification);
+
+        // Animate in
+        setTimeout(() => notification.classList.add('show'), 10);
+
+        // Auto-remove after 10 seconds (longer for errors)
+        const autoRemoveDelay = type === 'error' ? 15000 : 8000;
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }
+        }, autoRemoveDelay);
+    }
+
+    getNotificationIcon(type) {
+        const icons = {
+            error: '<i class="fas fa-exclamation-circle"></i>',
+            warning: '<i class="fas fa-exclamation-triangle"></i>',
+            info: '<i class="fas fa-info-circle"></i>',
+            success: '<i class="fas fa-check-circle"></i>'
+        };
+        return icons[type] || icons.error;
     }
 
     getAutoContext() {
@@ -530,7 +946,7 @@ class ChatGPTAssistant {
 
     truncateContent(content, maxTokens, label = "content") {
         const estimatedTokens = this.estimateTokens(content);
-        
+
         if (estimatedTokens <= maxTokens) {
             return content;
         }
@@ -538,22 +954,22 @@ class ChatGPTAssistant {
         // Calculate how much content we can keep
         const maxChars = maxTokens * 3;
         const truncatedContent = content.substring(0, maxChars);
-        
+
         return `${truncatedContent}\n\n... (${label} truncated - showing first ${maxTokens} tokens of ${estimatedTokens} total tokens)`;
     }
 
     enhanceMessageWithContext(message, context) {
         let enhancedMessage = message;
         const contextParts = [];
-        
+
         // Get current model limits
         const modelLimit = this.modelLimits[this.model] || this.modelLimits['gpt-3.5-turbo'];
         const maxContextTokens = Math.floor(modelLimit.context * 0.7); // Use 70% of context for input
-        
+
         // Estimate tokens for the base message
         let totalTokens = this.estimateTokens(message);
         const remainingTokens = maxContextTokens - totalTokens - 500; // Reserve 500 tokens for system prompt and overhead
-        
+
         console.log(`📊 Token Budget: ${maxContextTokens} max, ${totalTokens} used by message, ${remainingTokens} available for context`);
 
         if (remainingTokens <= 0) {
@@ -605,9 +1021,9 @@ class ChatGPTAssistant {
         if (contextParts.length > 0) {
             const contextText = contextParts.join('\n\n');
             const finalTokenCount = this.estimateTokens(message + contextText);
-            
+
             console.log(`📊 Final message: ${finalTokenCount} tokens (limit: ${maxContextTokens})`);
-            
+
             if (finalTokenCount > maxContextTokens) {
                 console.warn('⚠️ Final message still too long, truncating context further');
                 // Emergency truncation - reduce each context part
@@ -822,7 +1238,7 @@ class ChatGPTAssistant {
     showSetupInstructions() {
         const providerName = this.getProviderName();
         const isGemini = this.aiProvider === 'gemini';
-        
+
         const instructionsHTML = `
             <div class="setup-instructions">
                 <h3>🚀 Setup ${providerName} AI Assistant</h3>
@@ -852,10 +1268,10 @@ class ChatGPTAssistant {
                 <div class="setup-note">
                     <strong>💡 ${providerName} Model Recommendations:</strong>
                     <ul>
-                        ${isGemini ? 
-                            '<li><strong>Gemini 2.0 Flash:</strong> ⭐ Latest and most advanced</li><li><strong>Gemini 1.5 Pro:</strong> Best for complex coding tasks</li><li><strong>Gemini 1.5 Flash:</strong> Good balance of speed and capability</li>' :
-                            '<li><strong>GPT-4o Mini:</strong> ⭐ Best overall choice for coding</li><li><strong>GPT-3.5 Turbo:</strong> Most affordable for simple tasks</li><li><strong>GPT-4 Turbo:</strong> Best for complex debugging</li>'
-                        }
+                        ${isGemini ?
+                '<li><strong>Gemini 2.0 Flash:</strong> ⭐ Latest and most advanced</li><li><strong>Gemini 1.5 Pro:</strong> Best for complex coding tasks</li><li><strong>Gemini 1.5 Flash:</strong> Good balance of speed and capability</li>' :
+                '<li><strong>GPT-4o Mini:</strong> ⭐ Best overall choice for coding</li><li><strong>GPT-3.5 Turbo:</strong> Most affordable for simple tasks</li><li><strong>GPT-4 Turbo:</strong> Best for complex debugging</li>'
+            }
                     </ul>
                 </div>
 
@@ -1434,31 +1850,31 @@ class ChatGPTAssistant {
         this.messageHistory = [];
         this.historyIndex = -1;
         this.currentDraft = '';
-        
+
         // Clear all file references
         this.referencedFiles.clear();
-        
+
         // Clear the chat UI
         const chatMessages = document.getElementById('chatMessages');
         chatMessages.innerHTML = '';
-        
+
         // Clear the input field
         const chatInput = document.getElementById('chatInput');
         chatInput.value = '';
         this.autoResizeInput(chatInput);
-        
+
         // Update file references UI
         this.updateFileReferencesUI();
-        
+
         // Save cleared state
         this.saveSettings();
-        
+
         // Hide history indicator
         const indicator = document.getElementById('historyIndicator');
         if (indicator) {
             indicator.classList.remove('show');
         }
-        
+
         // Show fresh start message
         this.addSystemMessage('🔄 Chat cleared! Starting fresh. How can I help you today?');
     }
@@ -1471,12 +1887,12 @@ class ChatGPTAssistant {
             '• Message history navigation\n\n' +
             'Are you sure you want to start completely fresh?'
         );
-        
+
         if (!confirmed) return;
-        
+
         // Perform complete reset
         this.clearChat();
-        
+
         // Show confirmation
         this.showNotification('AI Assistant reset successfully - starting fresh!', 'success');
     }
@@ -1638,7 +2054,7 @@ class ChatGPTAssistant {
                 const estimatedCost = this.estimateCost(codeLength);
                 const fileName = window.codeEditor.currentFile.path.split('/').pop();
                 const analysisType = selection ? 'selected code' : 'entire file';
-                
+
                 const confirmed = confirm(
                     `🤖 Code Explanation Request\n\n` +
                     `File: ${fileName}\n` +
@@ -1651,7 +2067,7 @@ class ChatGPTAssistant {
                 if (!confirmed) return;
 
                 const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
-                
+
                 const message = `Please explain this ${fileExtension} code from "${fileName}":
 
 **What I'd like to understand:**
@@ -1688,7 +2104,7 @@ ${selection ? `*(Explaining selected code only)*` : `*(Explaining entire file)*`
                 const estimatedCost = this.estimateCost(codeLength, 'analysis');
                 const fileName = window.codeEditor.currentFile.path.split('/').pop();
                 const analysisType = selection ? 'selected code' : 'entire file';
-                
+
                 const confirmed = confirm(
                     `🔍 Code Analysis & Bug Fix Request\n\n` +
                     `File: ${fileName}\n` +
@@ -1704,7 +2120,7 @@ ${selection ? `*(Explaining selected code only)*` : `*(Explaining entire file)*`
                 if (!confirmed) return;
 
                 const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
-                
+
                 // Create a comprehensive prompt for code analysis
                 const message = `Please analyze this ${fileExtension} code from "${fileName}" for potential issues and bugs:
                 
@@ -1741,7 +2157,7 @@ ${selection ? `*(Analyzing selected code only)*` : `*(Analyzing entire file)*`}`
                 const estimatedCost = this.estimateCost(codeLength, 'optimization');
                 const fileName = window.codeEditor.currentFile.path.split('/').pop();
                 const analysisType = selection ? 'selected code' : 'entire file';
-                
+
                 const confirmed = confirm(
                     `🚀 Code Optimization Request\n\n` +
                     `File: ${fileName}\n` +
@@ -1758,7 +2174,7 @@ ${selection ? `*(Analyzing selected code only)*` : `*(Analyzing entire file)*`}`
                 if (!confirmed) return;
 
                 const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
-                
+
                 const message = `Please analyze and optimize this ${fileExtension} code from "${fileName}":
 
 **Optimization Goals:**
@@ -1801,7 +2217,7 @@ ${selection ? `*(Optimizing selected code only)*` : `*(Optimizing entire file)*`
                 const estimatedCost = this.estimateCost(codeLength, 'review');
                 const fileName = window.codeEditor.currentFile.path.split('/').pop();
                 const analysisType = selection ? 'selected code' : 'entire file';
-                
+
                 const confirmed = confirm(
                     `📝 Comprehensive Code Review Request\n\n` +
                     `File: ${fileName}\n` +
@@ -1819,7 +2235,7 @@ ${selection ? `*(Optimizing selected code only)*` : `*(Optimizing entire file)*`
                 if (!confirmed) return;
 
                 const fileExtension = window.codeEditor.currentFile.path.split('.').pop();
-                
+
                 const message = `Please conduct a comprehensive code review of this ${fileExtension} code from "${fileName}":
 
 **Review Checklist:**
@@ -1857,7 +2273,7 @@ ${selection ? `*(Reviewing selected code only)*` : `*(Reviewing entire file)*`}`
         // Rough estimation based on token count and model pricing
         const tokensPerChar = 0.25; // Approximate tokens per character
         const inputTokens = codeLength * tokensPerChar;
-        
+
         // Add estimated output tokens based on analysis type
         const outputTokenMultiplier = {
             'basic': 1.5,
@@ -1865,7 +2281,7 @@ ${selection ? `*(Reviewing selected code only)*` : `*(Reviewing entire file)*`}`
             'optimization': 2.5,
             'review': 3.0
         };
-        
+
         const outputTokens = inputTokens * (outputTokenMultiplier[analysisType] || 1.5);
         const totalTokens = inputTokens + outputTokens;
 
@@ -3317,6 +3733,189 @@ const chatCSS = `
             gap: var(--spacing-xs);
         }
     }
+
+    /* Detailed Notification Styles */
+    .notification-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-width: 400px;
+        pointer-events: none;
+    }
+
+    .detailed-notification {
+        background: var(--primary-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        overflow: hidden;
+        transform: translateX(100%);
+        transition: all 0.3s ease;
+        pointer-events: auto;
+        max-width: 100%;
+        min-width: 320px;
+    }
+
+    .detailed-notification.show {
+        transform: translateX(0);
+    }
+
+    .detailed-notification.error {
+        border-left: 4px solid var(--error-color, #dc3545);
+    }
+
+    .detailed-notification.warning {
+        border-left: 4px solid var(--warning-color, #ffc107);
+    }
+
+    .detailed-notification.info {
+        border-left: 4px solid var(--info-color, #17a2b8);
+    }
+
+    .detailed-notification.success {
+        border-left: 4px solid var(--success-color, #28a745);
+    }
+
+    .notification-header {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px 8px 16px;
+        background: var(--secondary-bg);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .notification-icon {
+        margin-right: 8px;
+        font-size: 18px;
+    }
+
+    .detailed-notification.error .notification-icon {
+        color: var(--error-color, #dc3545);
+    }
+
+    .detailed-notification.warning .notification-icon {
+        color: var(--warning-color, #ffc107);
+    }
+
+    .detailed-notification.info .notification-icon {
+        color: var(--info-color, #17a2b8);
+    }
+
+    .detailed-notification.success .notification-icon {
+        color: var(--success-color, #28a745);
+    }
+
+    .notification-title {
+        flex: 1;
+        font-weight: 600;
+        font-size: var(--font-size-sm);
+        color: var(--text-primary);
+        line-height: 1.3;
+    }
+
+    .notification-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: var(--transition);
+    }
+
+    .notification-close:hover {
+        background: var(--hover-bg);
+        color: var(--text-primary);
+    }
+
+    .notification-message {
+        padding: 8px 16px 12px 16px;
+        font-size: var(--font-size-sm);
+        color: var(--text-secondary);
+        line-height: 1.4;
+    }
+
+    .notification-actions {
+        padding: 0 16px 12px 16px;
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    .notification-action-btn {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: var(--font-size-xs);
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .notification-action-btn:hover {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+    }
+
+    .detailed-notification.error .notification-action-btn {
+        background: var(--error-color, #dc3545);
+    }
+
+    .detailed-notification.error .notification-action-btn:hover {
+        background: var(--error-hover, #c82333);
+    }
+
+    .detailed-notification.warning .notification-action-btn {
+        background: var(--warning-color, #ffc107);
+        color: #000;
+    }
+
+    .detailed-notification.warning .notification-action-btn:hover {
+        background: var(--warning-hover, #e0a800);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .notification-container {
+            top: 10px;
+            right: 10px;
+            left: 10px;
+            max-width: none;
+        }
+
+        .detailed-notification {
+            min-width: auto;
+        }
+
+        .notification-header {
+            padding: 10px 12px 6px 12px;
+        }
+
+        .notification-message {
+            padding: 6px 12px 10px 12px;
+        }
+
+        .notification-actions {
+            padding: 0 12px 10px 12px;
+        }
+    }
+
+    /* Dark theme adjustments */
+    @media (prefers-color-scheme: dark) {
+        .detailed-notification {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+    }
+
+    /* Animation for notification container */
+    .notification-container:empty {
+        display: none;
+    }
 `;
 
 const chatGPTStyle = document.createElement('style');
@@ -3348,7 +3947,9 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         const chatContainer = document.querySelector('.chat-container');
-        chatContainer.insertBefore(fileReferencesSection, chatContainer.firstChild);
+        if (chatContainer) {
+            chatContainer.insertBefore(fileReferencesSection, chatContainer.firstChild);
+        }
 
         // Enhanced quick actions with cost awareness
         const quickActions = document.createElement('div');
@@ -3385,55 +3986,63 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
 
         const inputContainer = document.querySelector('.chat-input-container');
+        if (inputContainer) {
+            // Add history indicator
+            const historyIndicator = document.createElement('div');
+            historyIndicator.className = 'history-indicator';
+            historyIndicator.id = 'historyIndicator';
+            inputContainer.appendChild(historyIndicator);
 
-        // Add history indicator
-        const historyIndicator = document.createElement('div');
-        historyIndicator.className = 'history-indicator';
-        historyIndicator.id = 'historyIndicator';
-        inputContainer.appendChild(historyIndicator);
+            // Add input hint
+            const inputHint = document.createElement('div');
+            inputHint.className = 'chat-input-hint';
+            inputHint.innerHTML = 'Use <code>↑</code> and <code>↓</code> arrows to navigate message history • <code>Esc</code> to clear';
 
-        // Add input hint
-        const inputHint = document.createElement('div');
-        inputHint.className = 'chat-input-hint';
-        inputHint.innerHTML = 'Use <code>↑</code> and <code>↓</code> arrows to navigate message history • <code>Esc</code> to clear';
-
-        chatContainer.insertBefore(quickActions, inputContainer);
-        chatContainer.appendChild(inputHint);
+            chatContainer.insertBefore(quickActions, inputContainer);
+            chatContainer.appendChild(inputHint);
+        }
     }
 
     // AI Provider change handler
     const aiProviderSelect = document.getElementById('aiProvider');
     if (aiProviderSelect) {
-        aiProviderSelect.addEventListener('change', function() {
+        aiProviderSelect.addEventListener('change', function () {
             const selectedProvider = this.value;
-            
+
             // Show/hide appropriate settings sections
             const geminiSettings = document.getElementById('geminiSettings');
             const openaiSettings = document.getElementById('openaiSettings');
-            
+
             if (selectedProvider === 'gemini') {
-                geminiSettings.style.display = 'block';
-                openaiSettings.style.display = 'none';
+                if (geminiSettings) geminiSettings.style.display = 'block';
+                if (openaiSettings) openaiSettings.style.display = 'none';
             } else {
-                geminiSettings.style.display = 'none';
-                openaiSettings.style.display = 'block';
+                if (geminiSettings) geminiSettings.style.display = 'none';
+                if (openaiSettings) openaiSettings.style.display = 'block';
             }
-            
+
             // Update the AI assistant immediately
             if (window.chatGPT) {
                 window.chatGPT.updateSettings({ aiProvider: selectedProvider });
             }
         });
-        
+
         // Trigger initial setup
         aiProviderSelect.dispatchEvent(new Event('change'));
     }
-    
+
     // Gemini settings handlers
     const geminiApiKeyInput = document.getElementById('geminiApiKey');
     const geminiModelSelect = document.getElementById('geminiModel');
     
     if (geminiApiKeyInput) {
+        geminiApiKeyInput.addEventListener('input', function() {
+            if (window.chatGPT) {
+                window.chatGPT.updateSettings({ geminiApiKey: this.value });
+                console.log('🔑 Gemini API key updated:', this.value ? '***' + this.value.slice(-4) : 'empty');
+            }
+        });
+        
         geminiApiKeyInput.addEventListener('change', function() {
             if (window.chatGPT) {
                 window.chatGPT.updateSettings({ geminiApiKey: this.value });
@@ -3445,6 +4054,27 @@ document.addEventListener('DOMContentLoaded', () => {
         geminiModelSelect.addEventListener('change', function() {
             if (window.chatGPT) {
                 window.chatGPT.updateSettings({ geminiModel: this.value });
+                console.log('🤖 Gemini model updated:', this.value);
+            }
+        });
+    }
+    
+    // OpenAI settings handlers
+    const openaiApiKeyInput = document.getElementById('openaiApiKey');
+    const openaiModelSelect = document.getElementById('aiModel');
+    
+    if (openaiApiKeyInput) {
+        openaiApiKeyInput.addEventListener('input', function() {
+            if (window.chatGPT) {
+                window.chatGPT.updateSettings({ apiKey: this.value });
+            }
+        });
+    }
+    
+    if (openaiModelSelect) {
+        openaiModelSelect.addEventListener('change', function() {
+            if (window.chatGPT) {
+                window.chatGPT.updateSettings({ model: this.value });
             }
         });
     }
